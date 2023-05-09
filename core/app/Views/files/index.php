@@ -28,8 +28,8 @@ $allow_create_folder = true; // Set to false to disable folder creation
 $allow_direct_link = true; // Set to false to only allow downloads and not direct link
 $allow_show_folders = true; // Set to false to hide all subdirectories
 
-$disallowed_patterns = ['*.php'];  // must be an array.  Matching files not allowed to be uploaded
-$hidden_patterns = ['*.php', '.*']; // Matching files hidden in directory index
+$disallowed_patterns = [];  // must be an array.  Matching files not allowed to be uploaded
+$hidden_patterns = []; // Matching files hidden in directory index
 
 // must be in UTF-8 or `basename` doesn't work
 setlocale(LC_ALL, 'en_US.UTF-8');
