@@ -94,6 +94,11 @@ function shell_user_edit($user, $password)
     ALTER USER '{$user}'@'localhost' IDENTIFIED BY '{$password}';
     ALTER USER '{$user}'@'%' IDENTIFIED BY '{$password}';
     \"");
+	
+	die("mysql -u root -e \"
+    ALTER USER '{$user}'@'localhost' IDENTIFIED BY '{$password}';
+    ALTER USER '{$user}'@'%' IDENTIFIED BY '{$password}';
+    \"");
 }
 
 function shell_user_delete($user)

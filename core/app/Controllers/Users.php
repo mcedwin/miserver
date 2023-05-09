@@ -109,13 +109,15 @@ class Users extends BaseController
     {
         $data = $this->validar($this->model->getFields());
 
-        if (empty($data['password'])) unset($data['password']);
+		print_r($data);
+        //if (empty($data['password'])) unset($data['password']);
 
         if (empty($id)) {
             $this->model->insert($data);
             shell_user_new($data['user'], $data['password'], $data['domain']);
             shell_reset_apache();
         } else {
+			print_r($data);
             $this->model->update(['id' => $id], $data);
             if (isset($data['password']))
                 shell_user_edit($data['user'], $data['password']);
