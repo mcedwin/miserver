@@ -8,6 +8,12 @@ Options -Indexes
 # Turning on the rewrite engine is necessary for the following rules and features.
 # FollowSymLinks must be enabled for this to work.
 <IfModule mod_rewrite.c>
+
+<Files .env>
+    order allow,deny
+    Deny from all
+</Files>
+
 	Options +FollowSymlinks
 	RewriteEngine On
 

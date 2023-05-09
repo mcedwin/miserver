@@ -1,4 +1,5 @@
 <?php
+        define("ENVIRONMENT","development");
 
 // Check PHP version.
 $minPhpVersion = '7.4'; // If you update this, don't forget to update `spark`.
