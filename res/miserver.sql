@@ -24,8 +24,8 @@ CREATE TABLE `db_relation`  (
   `idUser` int NOT NULL,
   PRIMARY KEY (`idShema`, `idUser`) USING BTREE,
   INDEX `fk_db_relation_db_user1_idx`(`idUser`) USING BTREE,
-  CONSTRAINT `fk_db_relation_db_shema1` FOREIGN KEY (`idShema`) REFERENCES `db_shema` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE,
-  CONSTRAINT `fk_db_relation_db_user1` FOREIGN KEY (`idUser`) REFERENCES `db_user` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
+  CONSTRAINT `fk_db_relation_db_shema1` FOREIGN KEY (`idShema`) REFERENCES `db_shema` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_db_relation_db_user1` FOREIGN KEY (`idUser`) REFERENCES `db_user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 
@@ -39,7 +39,7 @@ CREATE TABLE `db_shema`  (
   `idUser` int NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `fk_db_shema_user1_idx`(`idUser`) USING BTREE,
-  CONSTRAINT `fk_db_shema_user1` FOREIGN KEY (`idUser`) REFERENCES `user` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
+  CONSTRAINT `fk_db_shema_user1` FOREIGN KEY (`idUser`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -53,7 +53,7 @@ CREATE TABLE `db_user`  (
   `idUser` int NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `fk_db_user_user1_idx`(`idUser`) USING BTREE,
-  CONSTRAINT `fk_db_user_user1` FOREIGN KEY (`idUser`) REFERENCES `user` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
+  CONSTRAINT `fk_db_user_user1` FOREIGN KEY (`idUser`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 
