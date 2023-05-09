@@ -8,6 +8,7 @@
     <meta name="description" content="<?php echo $meta->description ?>" />
     <link rel="stylesheet" href="<?php echo base_url('/core/assets/lib/bootstrap5/css/bootstrap.min.css') ?>" />
     <link rel="stylesheet" href="<?php echo base_url('/core/assets/lib/fontawesome6/css/all.min.css') ?>" />
+    <script src="<?php echo base_url('core/assets/lib/jquery-3.6.0.min.js') ?>"></script>
 
     <link href="<?php echo base_url('core/assets/css/style.css') ?>" rel="stylesheet" media="all">
     <?php echo $css ?? '' ?>

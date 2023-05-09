@@ -15,7 +15,7 @@
         <div id="modales">
 
         </div>
-        <script src="<?php echo base_url('core/assets/lib/jquery-3.6.0.min.js') ?>"></script>
+        
         <script src="<?php echo base_url('core/assets/lib/bootstrap5/js/bootstrap.bundle.min.js') ?>"></script>
         <script src="<?php echo base_url('core/assets/js/scripts.js') ?>"></script>
         <script>
