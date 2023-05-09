@@ -13,7 +13,7 @@ class Users extends BaseController
     {
         parent::initController($request, $response, $logger);
         if (empty($this->user->id)) $response->redirect(base_url('login'));
-        if ($this->user->id!=1) $response->redirect(base_url('databases'));
+        
         helper('server');
         $this->model = new GeneralModel('user');
     }
@@ -21,6 +21,7 @@ class Users extends BaseController
 
     public function index()
     {
+        if ($this->user->id!=1) $this->response->redirect(base_url('databases'));
         $ssp = new Ssp();
 
         $this->addCss(array('lib/datatable/datatables.min.css'));
@@ -99,6 +100,7 @@ class Users extends BaseController
 
     public function crear()
     {
+        if ($this->user->id!=1) $this->response->redirect(base_url('databases'));
         helper('formulario');
 
         $datos['id'] = '0';
@@ -112,6 +114,7 @@ class Users extends BaseController
 
     public function guardar($id = '')
     {
+        if ($this->user->id!=1) $this->response->redirect(base_url('databases'));
         $data = $this->validar($this->model->getFields());
 
         if (empty($data['password'])) unset($data['password']);
@@ -130,6 +133,7 @@ class Users extends BaseController
 
     public function editar($id)
     {
+        if ($this->user->id!=1) $this->response->redirect(base_url('databases'));
         helper('formulario');
         $datos['id'] = $id;
         $datos['titulo'] = 'Editar usuario';
@@ -144,6 +148,7 @@ class Users extends BaseController
 
     public function borrar($id)
     {
+        if ($this->user->id!=1) $this->response->redirect(base_url('databases'));
         $this->dieAjax();
         if ($id == '1') $this->dieMsg(false, "Usuario principal");
         $row = $this->db->query("SELECT * FROM user WHERE id='{$id}'")->getRow();
@@ -172,6 +177,7 @@ class Users extends BaseController
     }
     public function activar($id)
     {
+        if ($this->user->id!=1) $this->response->redirect(base_url('databases'));
         $this->dieAjax();
         $this->db->query("UPDATE user SET active = NOT active WHERE id='{$id}'");
         $this->dieMsg();
