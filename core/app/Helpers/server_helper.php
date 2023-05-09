@@ -43,10 +43,14 @@ Require all granted
     echo shell_exec("mysql -u root -e \"CREATE DATABASE miserver;CREATE USER 'miserver'@'localhost' IDENTIFIED BY 'password';
     GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost' WITH GRANT OPTION;
     FLUSH PRIVILEGES;
+    \"");
+
+    echo shell_exec("mysql -u root miserver < res/miserver.sql");
+	
+    echo shell_exec("mysql -u root -e \"
     INSERT INFO config(domain) VALUES('{$domain}');
     INSERT INFO user(user,password,description,domain,active) VALUES('{$user}','{$password}','Root','','{$domain}');
     \"");
-	
 	
     shell_exec("apachectl restart");
     shell_exec("usermod -aG sudo {$user}");
