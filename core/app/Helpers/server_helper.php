@@ -40,12 +40,14 @@ Require all granted
 ######FIN {$user}######
 ' >> /etc/apache2/apache2.conf");
 
-    shell_exec("mysql -u root -e 'CREATE DATABASE miserver;CREATE USER 'miserver'@'localhost' IDENTIFIED BY 'password';
+    echo shell_exec("mysql -u root -e \"CREATE DATABASE miserver;CREATE USER 'miserver'@'localhost' IDENTIFIED BY 'password';
     GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost' WITH GRANT OPTION;
     FLUSH PRIVILEGES;
     INSERT INFO config(domain) VALUES('{$domain}');
-    INSERT INFO user(user,password,description,domain,active) VALUES(\'{$user}\',\'{$password}\',\'Root\',\'\',\'{$domain}\');
-    '");
+    INSERT INFO user(user,password,description,domain,active) VALUES('{$user}','{$password}','Root','','{$domain}');
+    \"");
+	
+	
     shell_exec("apachectl restart");
     shell_exec("usermod -aG sudo {$user}");
 }
@@ -116,12 +118,12 @@ function shell_domain_delete($name)
 
 function shell_db_new($user, $dbname)
 {
-    shell_exec("mysql -u root -e '
+    shell_exec("mysql -u root -e \"
         CREATE DATABASE {$dbname};
         GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$user}'@'%' WITH GRANT OPTION;
         GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$user}'@'localhost' WITH GRANT OPTION;
         FLUSH PRIVILEGES;
-        '");
+        \"");
 }
 
 function shell_db_delete($dbname)
@@ -131,39 +133,39 @@ function shell_db_delete($dbname)
 
 function shell_dbuser_new($dbuser,$password)
 {
-    shell_exec("mysql -u root -e '
+    shell_exec("mysql -u root -e \"
         CREATE USER '{$dbuser}'@'%' IDENTIFIED BY '{$password}';
         CREATE USER '{$dbuser}'@'localhost' IDENTIFIED BY '{$password}';
-    ");
+    \"");
 }
 
 function shell_dbuser_edit($dbuser,$password)
 {
-    shell_exec("mysql -u root -e '
+    shell_exec("mysql -u root -e \"
     ALTER USER '{$dbuser}'@'localhost' IDENTIFIED BY '{$password}';
     ALTER USER '{$dbuser}'@'%' IDENTIFIED BY '{$password}';
-    '");
+    \"");
 }
 
 function shell_dbuser_delete($dbuser)
 {
-    shell_exec("mysql -u root -e 'DROP USER \'{$dbuser}@localhost\';DROP USER \'{$dbuser}@%\';'");
+    shell_exec("mysql -u root -e \"DROP USER '{$dbuser}@localhost';DROP USER '{$dbuser}@%';\"");
 }
 
 function shell_dbrelation_new($dbname,$dbuser)
 {
-    shell_exec("mysql -u root -e '
+    shell_exec("mysql -u root -e \"
         GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$dbuser}'@'%' WITH GRANT OPTION;
         GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$dbuser}'@'localhost' WITH GRANT OPTION;
         FLUSH PRIVILEGES;
-    '");
+    \"");
 }
 
 function shell_dbrelation_delete($dbname,$dbuser)
 {
-    shell_exec("mysql -u root -e '
+    shell_exec("mysql -u root -e \"
         REVOKE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'%';
         REVOLE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'localhost';
         FLUSH PRIVILEGES;
-    '");
+    \"");
 }

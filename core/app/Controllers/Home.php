@@ -24,7 +24,7 @@ class Home extends BaseController
         $password = $this->request->getPost('password');
 
         helper('server');
-        shell_iniciar($user, $password, $domain);
+        shell_init($user, $password, $domain);
 
         $file = "./core/.env";
         if (!file_exists("./core/.env")) {

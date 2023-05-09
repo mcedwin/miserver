@@ -447,7 +447,8 @@ class App extends BaseConfig
 
     function __construct()
     {
-        
+			//print_r($_SERVER);
+			//exit(0);
         $a = str_replace(['/', '\\'], '#', $_SERVER['REQUEST_URI']);
         $b = str_replace(['/', '\\'], '#', ROOTPATH);
 
@@ -457,10 +458,9 @@ class App extends BaseConfig
         $result = array_intersect($a,  $b);
         $uri = implode("/", $result);
         $this->baseURL = sprintf(
-            "%s://%s:%s%s",
+            "%s://%s%s",
             isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https' : 'http',
-            $_SERVER['SERVER_NAME'],
-            $_SERVER['SERVER_PORT'],
+            $_SERVER['HTTP_HOST'],
             $uri
         );
 
