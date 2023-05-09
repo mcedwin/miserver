@@ -109,7 +109,7 @@ class Users extends BaseController
     {
         $data = $this->validar($this->model->getFields());
 
-        //if (empty($data['password'])) unset($data['password']);
+        if (empty($data['password'])) unset($data['password']);
 
         if (empty($id)) {
             $this->model->insert($data);
@@ -158,7 +158,7 @@ class Users extends BaseController
             shell_domain_delete($user . '_' . $row->id);
         }
 
-        shell_user_delete($row->user);
+        shell_user_delete($user);
 
         shell_reset_apache();
 
