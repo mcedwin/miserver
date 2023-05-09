@@ -84,7 +84,6 @@ class Users extends BaseController
         else {
             $data['user'] = $this->user->user;
             shell_user_edit($data['user'],$data['password']);
-            $data['password'] = $this->request->getPost('password');
         }
 
         $this->db->table('user')->update($data, array('id' => $this->user->id));
@@ -109,12 +108,11 @@ class Users extends BaseController
         $data = $this->validar($this->model->getFields());
 
         if (empty($data['password'])) unset($data['password']);
-        else $data['password'] = $this->request->getPost('password');
 
         if (empty($id)) {
             $this->model->insert($data);
             shell_user_new($data['user'],$data['password'],$data['domain']);
-
+            shell_reset_apache();
         } else {
             $this->model->update(['id' => $id], $data);
             if(isset($data['password']))
@@ -159,6 +157,8 @@ class Users extends BaseController
         }
         
         shell_user_delete($row->user);
+
+        shell_reset_apache();
 
         $this->model->where("id='{$id}' AND id!=1")->delete();
         $this->dieMsg();

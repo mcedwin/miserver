@@ -152,7 +152,6 @@ class Databases extends BaseController
         $data = $this->validar($this->modelUser->getFields());
 
         if (empty($data['password'])) unset($data['password']);
-        else $data['password'] = md5($this->request->getPost('password'));
 
         if (empty($id)) {
             $data['idUser'] = $this->user->id;
