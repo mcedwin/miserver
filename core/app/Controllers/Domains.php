@@ -9,16 +9,16 @@ class Domains extends BaseController
 {
     protected $model;
 
-    public function __construct()
+    public function initController(\CodeIgniter\HTTP\RequestInterface $request, \CodeIgniter\HTTP\ResponseInterface $response, \Psr\Log\LoggerInterface $logger)
     {
+        parent::initController($request, $response, $logger);
+        if (empty($this->user->id)) $response->redirect(base_url('login'));
         helper('server');
         $this->model = new GeneralModel('domain');
     }
 
     public function index()
     {
-        if (empty($this->user->id)) return redirect()->to('login');
-
         $ssp = new Ssp();
 
         $this->addCss(array('lib/datatable/datatables.min.css'));
@@ -63,7 +63,7 @@ class Domains extends BaseController
         helper('formulario');
 
         $datos['id'] = '0';
-        $datos['titulo'] = 'Nuevo usuario';
+        $datos['titulo'] = 'Nuevo dominio';
         $datos['fields'] = $this->model->geti();
 
         $datos['editar'] = false;

@@ -8,8 +8,8 @@
             <div class="modal-body">
                 <div class="row">
                             <?php
-                            echo myinput($fields->domain, '6');
-                            echo myinput($fields->folder, '6');
+                            echo myinput($fields->domain,'6','','',[],'','http://');
+                            echo myinput($fields->folder, '6','','',[],'','/');
                              ?>
                      
                 </div>

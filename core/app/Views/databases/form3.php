@@ -8,8 +8,8 @@
             <div class="modal-body">
                 <div class="row">
                             <?php
-                            echo myinput($fields->idShema, '6', '', '', $shemas,'');
-                            echo myinput($fields->idUser, '6', '', '', $users,'');
+                            echo myinput($fields->idShema, '6', '', '', $shemas,'',$user->user.'_');
+                            echo myinput($fields->idUser, '6', '', '', $users,'',$user->user.'_');
                              ?>
                      
                 </div>

@@ -8,7 +8,7 @@
             <div class="modal-body">
                 <div class="row">
                             <?php
-                            echo myinput($fields->name, '6');
+                            echo myinput($fields->name, '6','','',[],'',$user->user.'_');
                              ?>
                      
                 </div>

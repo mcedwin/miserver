@@ -7,11 +7,11 @@ function shell_reset_apache()
 }
 function shell_reset_mysql()
 {
-    shell_exec("");
+    shell_exec("systemctl restart mysql");
 }
 function shell_reset_ssh()
 {
-    shell_exec("");
+    shell_exec("service ssh restart");
 }
 
 function shell_init($user, $password, $domain)
@@ -90,6 +90,10 @@ Require all granted
 function shell_user_edit($user, $password)
 {
     shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
+    shell_exec("mysql -u root -e \"
+    ALTER USER '{$user}'@'localhost' IDENTIFIED BY '{$password}';
+    ALTER USER '{$user}'@'%' IDENTIFIED BY '{$password}';
+    \"");
 }
 
 function shell_user_delete($user)

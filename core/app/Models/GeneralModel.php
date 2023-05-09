@@ -16,7 +16,7 @@ class GeneralModel extends Model
         $datas['user'] = ['table' => 'user', 'primary' => 'id', 'fields' => [
             'id' => array('label' => 'ID'),
             'user' => array('label' => 'Usuario', ),
-            'password' => array('label' => 'Password', 'required' => false),
+            'password' => array('label' => 'Password','type'=>'password' ,'required' => false),
             'description' => array('label' => 'Descripción'),
             'domain' => array('label' => 'Dominio'),
             'active' => array('label' => 'Tipo'),
@@ -32,7 +32,7 @@ class GeneralModel extends Model
         $datas['db_user'] = ['table' => 'db_user', 'primary' => 'id', 'fields' => [
             'id' => array('label' => 'ID'),
             'user' => array('label' => 'Usuario'),
-            'password' => array('label' => 'Password', 'required' => false),
+            'password' => array('label' => 'Password', 'type'=>'password' ,'required' => false),
             'idUser' => array('label' => 'Usuario'),
         ]];
 

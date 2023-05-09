@@ -65,7 +65,7 @@ EOT;
     return $html;
 }
 
-function myinput($reg, $col, $class = '', $params = '', $data = array(), $placeholder = "")
+function myinput($reg, $col, $class = '', $params = '', $data = array(), $placeholder = "",$group='')
 {
 
     if (!isset($reg->id)) $reg->id = $reg->name;
@@ -87,6 +87,10 @@ function myinput($reg, $col, $class = '', $params = '', $data = array(), $placeh
         $html .= <<<EOT
             <div class="form-group mb-2 col-md-{$col}">
 EOT;
+    }
+
+    if(!empty($group)){
+        $label .= '<div class="input-group"><span class="input-group-text">'.$group.'</span>';
     }
 
     if ($reg->type == 'text') {
@@ -131,13 +135,19 @@ EOT;
 EOT;
     } else if ($reg->type == 'password') {
         $html .= <<<EOT
-    {$label}<input type="password" class="form-control" maxlength="{$reg->max_length}" id="{$reg->name}" name="{$reg->name}" value="{$reg->value}" {$params} autocomplete="off">
+    {$label}<input type="password" class="form-control" maxlength="{$reg->max_length}" id="{$reg->name}" name="{$reg->name}" value="{$reg->value}" {$params} autocomplete="off"  placeholder="{$reg->label}">
 EOT;
     } else {
         $html .= <<<EOT
     {$label}<input type="text" class="form-control {$class}" maxlength="{$reg->max_length}" id="{$reg->id}" name="{$reg->name}" value="{$reg->value}" {$params} autocomplete="off" placeholder="{$reg->label}">
 EOT;
     }
+
+
+    if(!empty($group)){
+        $html .= '</div>';
+    }
+
     if ($col != '0') $html .= '</div>';
     return $html;
 }

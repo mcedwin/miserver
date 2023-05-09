@@ -9,16 +9,18 @@ class Users extends BaseController
 {
     protected $model;
 
-    public function __construct()
+    public function initController(\CodeIgniter\HTTP\RequestInterface $request, \CodeIgniter\HTTP\ResponseInterface $response, \Psr\Log\LoggerInterface $logger)
     {
+        parent::initController($request, $response, $logger);
+        if (empty($this->user->id)) $response->redirect(base_url('login'));
+        if ($this->user->id!=1) $response->redirect(base_url('databases'));
         helper('server');
         $this->model = new GeneralModel('user');
     }
 
+
     public function index()
     {
-        if (empty($this->user->id)) return redirect()->to('login');
-
         $ssp = new Ssp();
 
         $this->addCss(array('lib/datatable/datatables.min.css'));
@@ -83,7 +85,7 @@ class Users extends BaseController
         if (empty($data['password'])) unset($data['password']);
         else {
             $data['user'] = $this->user->user;
-            shell_user_edit($data['user'],$data['password']);
+            shell_user_edit($data['user'], $data['password']);
         }
 
         $this->db->table('user')->update($data, array('id' => $this->user->id));
@@ -111,12 +113,12 @@ class Users extends BaseController
 
         if (empty($id)) {
             $this->model->insert($data);
-            shell_user_new($data['user'],$data['password'],$data['domain']);
+            shell_user_new($data['user'], $data['password'], $data['domain']);
             shell_reset_apache();
         } else {
             $this->model->update(['id' => $id], $data);
-            if(isset($data['password']))
-                shell_user_edit($data['user'],$data['password']);
+            if (isset($data['password']))
+                shell_user_edit($data['user'], $data['password']);
         }
         $this->dieMsg(true);
     }
@@ -138,24 +140,24 @@ class Users extends BaseController
     public function borrar($id)
     {
         $this->dieAjax();
-        if($id=='1') $this->dieMsg(false,"Usuario principal");
+        if ($id == '1') $this->dieMsg(false, "Usuario principal");
         $row = $this->db->query("SELECT * FROM user WHERE id='{$id}'")->getRow();
-        $user =$row->user;
+        $user = $row->user;
         $dbusers = $this->db->query("SELECT * FROM db_user WHERE idUser='{$id}'")->getResult();
-        foreach($dbusers as $row){
+        foreach ($dbusers as $row) {
             shell_dbuser_delete($row->user);
         }
         $dbshemas = $this->db->query("SELECT * FROM db_shema WHERE idUser='{$id}'")->getResult();
-        foreach($dbshemas as $row){
+        foreach ($dbshemas as $row) {
             shell_db_delete($row->name);
         }
 
         shell_domain_delete($user);
         $domains = $this->db->query("SELECT * FROM domain WHERE idUser='{$id}'")->getResult();
-        foreach($domains as $row){
-            shell_domain_delete($user.'_'.$row->id);
+        foreach ($domains as $row) {
+            shell_domain_delete($user . '_' . $row->id);
         }
-        
+
         shell_user_delete($row->user);
 
         shell_reset_apache();

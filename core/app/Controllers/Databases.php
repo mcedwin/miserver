@@ -11,8 +11,10 @@ class Databases extends BaseController
     protected $modelUser;
     protected $modelRelation;
 
-    public function __construct()
+    public function initController(\CodeIgniter\HTTP\RequestInterface $request, \CodeIgniter\HTTP\ResponseInterface $response, \Psr\Log\LoggerInterface $logger)
     {
+        parent::initController($request, $response, $logger);
+        if (empty($this->user->id)) $response->redirect(base_url('login'));
         helper('server');
         $this->modelShema = new GeneralModel('db_shema');
         $this->modelUser = new GeneralModel('db_user');
@@ -21,8 +23,6 @@ class Databases extends BaseController
 
     public function index()
     {
-        if (empty($this->user->id)) return redirect()->to('login');
-
         $ssp = new Ssp();
 
         $this->addCss(array('lib/datatable/datatables.min.css'));
@@ -104,7 +104,7 @@ class Databases extends BaseController
         helper('formulario');
 
         $datos['id'] = '0';
-        $datos['titulo'] = 'Nuevo usuario';
+        $datos['titulo'] = 'Nueva base de datos';
         $datos['fields'] = $this->modelShema->geti();
 
         $this->showContent('form1', $datos);
@@ -141,7 +141,7 @@ class Databases extends BaseController
         helper('formulario');
 
         $datos['id'] = '0';
-        $datos['titulo'] = 'Nuevo usuario';
+        $datos['titulo'] = 'Nuevo usario de base de datos';
         $datos['fields'] = $this->modelUser->geti();
         $datos['editar'] = false;
 
@@ -172,7 +172,7 @@ class Databases extends BaseController
     {
         helper('formulario');
         $datos['id'] = $id;
-        $datos['titulo'] = 'Editar usuario';
+        $datos['titulo'] = 'Editar usuario de base de datos';
 
         $datos['fields'] = $this->modelUser->geti($id);
         $datos['fields']->password->value = '';
@@ -199,7 +199,7 @@ class Databases extends BaseController
         helper('formulario');
 
         $datos['id'] = '0';
-        $datos['titulo'] = 'Nuevo usuario';
+        $datos['titulo'] = 'Relacionar base de datos con usuario';
         $datos['shemas'] = $this->db->query("SELECT id as `id`, name as `text` FROM db_shema WHERE idUser='{$this->user->id}'")->getResult();
         $datos['users'] = $this->db->query("SELECT id as `id`, user as `text` FROM db_user WHERE idUser='{$this->user->id}'")->getResult();
         $datos['fields'] = $this->modelRelation->geti();

@@ -9,9 +9,8 @@
                 <div class="row">
                 <?php
                             $fields->password->required=false;
-                            echo myinput($fields->user, '6','disabled',$editar?'readonly="true"':'');
+                            echo myinput($fields->user, '6','disabled',$editar?'readonly="true"':'',[],'',$user->user.'_');
                             echo myinput($fields->password, '6');
-                            
                             ?>
                      
                 </div>
