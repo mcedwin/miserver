@@ -121,6 +121,7 @@ abstract class BaseController extends Controller
             }
             if ($fields[$key]->type == 'select') $fields[$key]->type = 'int';
             if ($fields[$key]->type == 'hidden') $fields[$key]->type = 'text';
+            if ($fields[$key]->type == 'password') $fields[$key]->type = 'text';
             if ($fields[$key]->required == true) {
                 if (!empty($fields[$key]->valid)) {
 
