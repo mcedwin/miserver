@@ -107,6 +107,7 @@ if ($_GET['do'] == 'list') {
 
 	$res = move_uploaded_file($_FILES['file_data']['tmp_name'], $file . '/' . $_FILES['file_data']['name']);
 	shell_exec("chown {$user->user} ".$file . '/' . $_FILES['file_data']['name']);
+	json_encode(['exito'=>true]);
 	exit;
 } elseif ($_GET['do'] == 'download') {
 	foreach ($disallowed_patterns as $pattern)
