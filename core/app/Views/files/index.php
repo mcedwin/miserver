@@ -52,7 +52,13 @@ if (preg_match('@^.+://@', $_REQUEST['file'])) {
 
 $file = $_REQUEST['file'] ?: '.';
 $chdir = "/home/{$user->user}/";
+
+if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+	$chdir = "./";
+} 
+
 chdir($chdir);
+
 if ($_GET['do'] == 'list') {
 	if (is_dir($file)) {
 		$directory = $file;
@@ -99,6 +105,7 @@ if ($_GET['do'] == 'list') {
 	chdir($file);
 	@mkdir($_POST['name']);
 	shell_exec("chown {$user->user} ".$_POST['name']);
+	echo json_encode(['exito' => true]);
 	exit;
 } elseif ($_POST['do'] == 'upload' && $allow_upload) {
 	foreach ($disallowed_patterns as $pattern)
