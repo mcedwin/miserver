@@ -447,10 +447,9 @@ class App extends BaseConfig
 
     function __construct()
     {
-			//print_r($_SERVER);
-			//exit(0);
+			
         $a = str_replace(['/', '\\'], '#', $_SERVER['REQUEST_URI']);
-        $b = str_replace(['/', '\\'], '#', ROOTPATH);
+        $b = str_replace(['/', '\\'], '#', preg_replace("#^/home#",'',ROOTPATH));
 
         $a =  explode('#', $a);
         $b =  explode('#', $b);
@@ -463,6 +462,6 @@ class App extends BaseConfig
             $_SERVER['HTTP_HOST'],
             $uri
         );
-
+		
     }
 }

@@ -125,10 +125,11 @@ $(document).ready(function() {
             ],
             onrow: function(data) {
                 html = `<div style='width:100px'>
-                <a class="btn btn-danger delete3 btn-sm" href="{baseurl}/databases/borrar3/{id}"><i class="fas fa-trash-alt"></i></a></td>
+                <a class="btn btn-danger delete3 btn-sm" href="{baseurl}/databases/borrar3/{idu}/{ids}"><i class="fas fa-trash-alt"></i></a></td>
                 </div>`;
                 html = replaceAll(html, "{baseurl}", base_url);
-                html = replaceAll(html, "{id}", data.DT_RowId);
+                html = replaceAll(html, "{idu}", data.DT_RowIdU);
+				html = replaceAll(html, "{ids}", data.DT_RowIdS);
                 return html;
             }
         };

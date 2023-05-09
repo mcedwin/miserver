@@ -43,7 +43,8 @@ class Databases extends BaseController
         $columns3 = array(
             array('db' => "CONCAT('{$this->user->user}_',db_user.user) as dbuser", 'dt' => 'Usuario', "field" => "dbuser"),
             array('db' => "CONCAT('{$this->user->user}_',db_shema.name) as dbname", 'dt' => 'Base de datos', "field" => "dbname"),
-            array('db' => 'idShema',  'dt' => 'DT_RowId',        "field" => "idShema"),
+            array('db' => 'db_user.id as idu',  'dt' => 'DT_RowIdU',        "field" => "idu"),
+			array('db' => 'db_shema.id as ids',  'dt' => 'DT_RowIdS',        "field" => "ids"),
         );
 
 
@@ -162,7 +163,7 @@ class Databases extends BaseController
             $this->modelUser->update(['id' => $id], $data);
             $dbuser = $this->user->user . '_' . $data['user'];
             if (isset($data['password']))
-                shell_dbuser_new($data, $data['password']);
+                shell_dbuser_edit($dbuser, $data['password']);
         }
         $this->dieMsg(true);
     }
@@ -217,8 +218,8 @@ class Databases extends BaseController
             $this->modelRelation->insert($data);
             $iduser = $data['idUser'];
             $idshema = $data['idShema'];
-            $user = $this->db->query("SELECT * FROM db_user WHERE id='{$iduser}' AND idUser='{$this->user->id}'")->getRow();
-            $name = $this->db->query("SELECT * FROM db_shema WHERE id='{$idshema}' AND idUser='{$this->user->id}'")->getRow();
+            $user = $this->db->query("SELECT * FROM db_user WHERE id='{$iduser}' AND idUser='{$this->user->id}'")->getRow()->user;
+            $name = $this->db->query("SELECT * FROM db_shema WHERE id='{$idshema}' AND idUser='{$this->user->id}'")->getRow()->name;
             $dbname = $this->user->user . '_' . $name;
             $dbuser = $this->user->user . '_' . $user;
             shell_dbrelation_new($dbname, $dbuser);
@@ -228,18 +229,23 @@ class Databases extends BaseController
     }
 
 
-    public function borrar3($id)
+    public function borrar3($idUser,$idShema)
     {
         $this->dieAjax();
-        $row = $this->db->query("SELECT * FROM domain WHERE id='{$id}' AND idUser='{$this->user->id}'")->getRow();
+        $row = $this->db->query("SELECT * FROM db_shema WHERE id='{$idShema}' AND idUser='{$this->user->id}'")->getRow();
+		
+		if($row){
+			$user = $this->db->query("SELECT * FROM db_user WHERE id='{$idUser}' AND idUser='{$this->user->id}'")->getRow()->user;
+			$name = $this->db->query("SELECT * FROM db_shema WHERE id='{$idShema}' AND idUser='{$this->user->id}'")->getRow()->name;
+			$dbname = $this->user->user . '_' . $name;
+			$dbuser = $this->user->user . '_' . $user;
 
-        $user = $this->db->query("SELECT * FROM db_user WHERE id='{$row->idUser}' AND idUser='{$this->user->id}'")->getRow();
-        $name = $this->db->query("SELECT * FROM db_shema WHERE id='{$row->idShema}' AND idUser='{$this->user->id}'")->getRow();
-        $dbname = $this->user->user . '_' . $name;
-        $dbuser = $this->user->user . '_' . $user;
+			shell_dbrelation_delete($dbname, $dbuser);
+			
+			$this->modelRelation->where("idUser='{$idUser}' AND idShema='{$idShema}'")->delete();
+		}
 
-        shell_dbrelation_delete($dbname, $dbuser);
-        $this->modelRelation->where("id='{$id}' AND id!=1")->delete();
+        
         $this->dieMsg();
     }
 }

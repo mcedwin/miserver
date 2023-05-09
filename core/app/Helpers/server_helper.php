@@ -16,13 +16,12 @@ function shell_reset_ssh()
 
 function shell_init($user, $password, $domain)
 {
-    shell_exec("useradd -s /bin/bash {$user}");
+    shell_exec("useradd -m -s /bin/bash {$user}");
     shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
-    shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
-    shell_exec("mkdir /home/mcedwin/public_html");
-    shell_exec("chmod o+x /home/u217308");
-    shell_exec("chown u217308 /home/u217308/public_html");
-    shell_exec("echo 'Hola u217308' > /home/u217308/public_html/index.html");
+    shell_exec("mkdir /home/{$user}/public_html");
+    shell_exec("chmod o+x /home/{$user}");
+    shell_exec("chown {$user} /home/{$user}/public_html");
+    shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
 
     shell_exec("echo '
 ServerName 127.0.0.1
@@ -41,15 +40,15 @@ Require all granted
 ' >> /etc/apache2/apache2.conf");
 
     echo shell_exec("mysql -u root -e \"CREATE DATABASE miserver;CREATE USER 'miserver'@'localhost' IDENTIFIED BY 'password';
-    GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost' WITH GRANT OPTION;
+    GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost';
     FLUSH PRIVILEGES;
     \"");
 
     echo shell_exec("mysql -u root miserver < res/miserver.sql");
 	
-    echo shell_exec("mysql -u root -e \"
-    INSERT INFO config(domain) VALUES('{$domain}');
-    INSERT INFO user(user,password,description,domain,active) VALUES('{$user}','{$password}','Root','','{$domain}');
+    echo shell_exec("mysql -u root -e \"USE miserver;
+    INSERT INTO config(id,domain) VALUES('1','{$domain}');
+    INSERT INTO user(id,user,password,description,domain,active) VALUES(1,'{$user}','{$password}','Root','{$domain}','1');
     \"");
 	
     shell_exec("apachectl restart");
@@ -59,7 +58,7 @@ Require all granted
 
 function shell_user_new($user, $password, $domain)
 {
-    shell_exec("useradd -s /bin/bash {$user}");
+    shell_exec("useradd -m -s /bin/bash {$user}");
     shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
     shell_exec("mkdir /home/{$user}/public_html");
     shell_exec("chmod o+x /home/{$user}");
@@ -79,6 +78,12 @@ Require all granted
 </VirtualHost>
 ######FIN {$user}######
 ' >> /etc/apache2/apache2.conf");
+
+	shell_exec("mysql -u root -e \"
+        CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
+        CREATE USER '{$user}'@'localhost' IDENTIFIED BY '{$password}';
+    \"");
+
 }
 
 
@@ -124,8 +129,8 @@ function shell_db_new($user, $dbname)
 {
     shell_exec("mysql -u root -e \"
         CREATE DATABASE {$dbname};
-        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$user}'@'%' WITH GRANT OPTION;
-        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$user}'@'localhost' WITH GRANT OPTION;
+        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$user}'@'%';
+        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$user}'@'localhost';
         FLUSH PRIVILEGES;
         \"");
 }
@@ -153,23 +158,30 @@ function shell_dbuser_edit($dbuser,$password)
 
 function shell_dbuser_delete($dbuser)
 {
-    shell_exec("mysql -u root -e \"DROP USER '{$dbuser}@localhost';DROP USER '{$dbuser}@%';\"");
+    shell_exec("mysql -u root -e \"DROP USER '{$dbuser}'@'localhost';DROP USER '{$dbuser}'@'%';\"");
 }
 
 function shell_dbrelation_new($dbname,$dbuser)
 {
     shell_exec("mysql -u root -e \"
-        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$dbuser}'@'%' WITH GRANT OPTION;
-        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$dbuser}'@'localhost' WITH GRANT OPTION;
+        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$dbuser}'@'%' ;
+        GRANT ALL PRIVILEGES ON {$dbname}.* TO '{$dbuser}'@'localhost';
         FLUSH PRIVILEGES;
     \"");
 }
 
 function shell_dbrelation_delete($dbname,$dbuser)
 {
+	
+	/*die("mysql -u root -e \"
+        REVOKE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'%';
+        REVOKE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'localhost';
+        FLUSH PRIVILEGES;
+    \"");*/
+	
     shell_exec("mysql -u root -e \"
         REVOKE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'%';
-        REVOLE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'localhost';
+        REVOKE ALL PRIVILEGES ON {$dbname}.* FROM '{$dbuser}'@'localhost';
         FLUSH PRIVILEGES;
     \"");
 }
