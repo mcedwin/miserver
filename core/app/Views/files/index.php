@@ -98,6 +98,7 @@ if ($_GET['do'] == 'list') {
 		exit;
 	chdir($file);
 	@mkdir($_POST['name']);
+	shell_exec("chown {$user->user} ".$_POST['name']);
 	exit;
 } elseif ($_POST['do'] == 'upload' && $allow_upload) {
 	foreach ($disallowed_patterns as $pattern)
@@ -105,6 +106,7 @@ if ($_GET['do'] == 'list') {
 			err(403, "Files of this type are not allowed.");
 
 	$res = move_uploaded_file($_FILES['file_data']['tmp_name'], $file . '/' . $_FILES['file_data']['name']);
+	shell_exec("chown {$user->user} ".$file . '/' . $_FILES['file_data']['name']);
 	exit;
 } elseif ($_GET['do'] == 'download') {
 	foreach ($disallowed_patterns as $pattern)
