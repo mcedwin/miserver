@@ -342,7 +342,6 @@ abstract class BaseController extends Controller
         } else {
             $this->datos['menu_top'] = [
                 ['url' => 'databases', 'base' => 'databases', 'name' => 'Bases de Datos', 'ico' => 'fa-solid fa-share-from-square'],
-                ['url' => 'domains', 'base' => 'domains', 'name' => 'Dominios', 'ico' => 'fa-solid fa-address-book'],
             ];
         }
 

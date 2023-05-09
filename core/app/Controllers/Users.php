@@ -27,6 +27,11 @@ class Users extends BaseController
         $this->addJs(array('lib/datatable/datatables.min.js', 'js/users/lista.js'));
         $json = isset($_GET['json']) ? $_GET['json'] : false;
 
+        $boton = function ($d, $row) {
+            $url = 'http://'. $d;
+           return '<a href="' . $url . '" target="_blank" class="btn btn-sm btn-warning "><i class="fa-solid fa-link"></i> '.$d.'</a>';
+        };
+
         $botonActivo = function ($d, $row) {
             $url = base_url('users/activar/' . $row['id']);
             if ($d == 1) return '<a href="' . $url . '" class="btn btn-sm btn-info activar"><i class="fa-solid fa-check"></i> Activo</a>';
@@ -37,7 +42,7 @@ class Users extends BaseController
             array('db' => 'id', 'dt' => 'ID', "field" => "id"),
             array('db' => 'user', 'dt' => 'Usuario', "field" => "user"),
             array('db' => 'description', 'dt' => 'Descripción', "field" => "description"),
-            array('db' => 'domain', 'dt' => 'Dominio', "field" => "domain"),
+            array('db' => 'domain', 'dt' => 'Dominio', "field" => "domain", "formatter" => $boton),
             array('db' => 'active', 'dt' => 'Activo', "field" => "active", "formatter" => $botonActivo),
             array('db' => 'id',  'dt' => 'DT_RowId',        "field" => "id"),
         );

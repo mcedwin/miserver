@@ -13,6 +13,7 @@ class Domains extends BaseController
     {
         parent::initController($request, $response, $logger);
         if (empty($this->user->id)) $response->redirect(base_url('login'));
+        if ($this->user->id!=1) $response->redirect(base_url('databases'));
         helper('server');
         $this->model = new GeneralModel('domain');
     }
