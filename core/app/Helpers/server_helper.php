@@ -100,6 +100,10 @@ function shell_user_delete($user)
 {
     shell_exec("userdel {$user}");
     shell_exec("rm -r /home/{$user}");
+	
+	shell_exec("mysql -u root -e \"DROP USER '{$user}'@'localhost';DROP USER '{$user}'@'%';\"");
+	
+	shell_exec("mysql -u root -e 'DROP DATABASE {$user};'");
 }
 
 function shell_domain_new($user, $name, $domain, $folder)
