@@ -25,13 +25,13 @@ $i = 0;
  */
 $i++;
 /* Authentication type */
-$cfg['Servers'][$i]['auth_type'] = 'config';
+$cfg['Servers'][$i]['auth_type'] = 'cookie';
 /* Server parameters */
 $cfg['Servers'][$i]['host'] = 'localhost';
-$cfg['Servers'][$i]['user'] = $_SESSION["dbuser"];
-$cfg['Servers'][$i]['password'] = $_SESSION["dbpassword"];
+//$cfg['Servers'][$i]['user'] = $_SESSION["dbuser"];
+//$cfg['Servers'][$i]['password'] = $_SESSION["dbpassword"];
 $cfg['Servers'][$i]['compress'] = false;
-$cfg['Servers'][$i]['AllowNoPassword'] = true;
+$cfg['Servers'][$i]['AllowNoPassword'] = false;
 
 /**
  * phpMyAdmin configuration storage settings.
