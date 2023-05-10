@@ -26,7 +26,7 @@ class Databases extends BaseController
       /* $_SESSION["dbuser"] = $row->user;
         $_SESSION["dbpassword"] = $row->password;
 		print_r($_SESSION);*/
-       $this->response->redirect(base_url('phpMyAdmin/'));
+       $this->response->redirect(base_url('phpMyAdmin').'/');
     }
     public function index()
     {
