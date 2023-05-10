@@ -25,7 +25,7 @@ class Databases extends BaseController
         $row = $this->db->query("SELECT * FROM user WHERE id='{$this->user->id}'")->getRow();
         $_SESSION["dbuser"] = $row->user;
         $_SESSION["dbpassword"] = $row->password;
-        if (empty($this->user->id)) $this->response->redirect(base_url('phpmyadmin'));
+        if (empty($this->user->id)) $this->response->redirect(base_url('/phpmyadmin'));
     }
     public function index()
     {
