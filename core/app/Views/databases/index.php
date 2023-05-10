@@ -1,4 +1,7 @@
 <div class="container pt-4">
+
+<a href="<?php echo base_url('databases/phpmyadmin') ?>" class="btn btn-warning">phpmyadmin</a>
+<br><br>
     <div class="card">
         <div class="card-header d-flex justify-content-between">
             <h5 class="lh-base mb-0">
