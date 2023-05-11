@@ -23,10 +23,7 @@
                             <?php echo session()->get('user')  ?>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
-                            <?php if ($user->type == '1') : ?>
-                                <a class="dropdown-item" href="<?php echo base_url('ajustes/index'); ?>"><i class="fa-solid fa-gear"></i> Administrar</a>
-                            <?php endif; ?>
-                            <a class="dropdown-item" href="<?php echo base_url('usuarios/perfil'); ?>"><i class="fa-solid fa-gear"></i> Perfil</a>
+                            <a class="dropdown-item" href="<?php echo base_url('users/perfil'); ?>"><i class="fa-solid fa-gear"></i> Perfil</a>
                             <a class="dropdown-item" href="<?php echo base_url('login/salir'); ?>"><i class="fa-solid fa-arrow-right-from-bracket"></i> Salir</a>
                         </div>
                     </div>

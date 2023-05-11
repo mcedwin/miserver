@@ -42,7 +42,7 @@ class Login extends BaseController
             $sesdata = array(
                 'id'  => $row->id,
                 'user'  => $row->user,
-                'name'  => $row->description,
+                'name'  => $row->domain,
                 'auth'     => true
             );
             $session->set($sesdata);
