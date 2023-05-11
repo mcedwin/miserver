@@ -44,6 +44,7 @@ class Files extends BaseController
         $file = $this->request->getPost('file');
         $text = $this->request->getPost('text');
         file_put_contents($file, $text);
+        shell_exec("chown {$this->user->user} {$file}");
         $this->dieMsg(true);
     }
 }
