@@ -20,6 +20,7 @@ class Files extends BaseController
                     $chdir = "./";
                 }
                 chdir($chdir);
+                $datos['titulo'] = 'Editar archivo';
                 $datos['file'] = $file = $_GET['file'];
                 $datos['text'] = file_get_contents($file);
                 $this->showContent('form', $datos);
@@ -31,5 +32,13 @@ class Files extends BaseController
         $this->showHeader();
         $this->showContent('index');
         $this->showFooter();
+    }
+
+    public function guardar()
+    {
+        $file = $this->request->getPost('file');
+        $text = $this->request->getPost('text');
+        file_put_contents($file, $text);
+        $this->dieMsg(true);
     }
 }
