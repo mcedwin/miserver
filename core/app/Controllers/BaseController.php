@@ -96,9 +96,9 @@ abstract class BaseController extends Controller
 
             $row = $this->db->query("SELECT domain FROM config WHERE id='1'")->getRow();
 
-            if (!empty($this->user->id)) {
+            /*if (!empty($this->user->id)) {
                 $this->user->name = $row->domain;
-            }
+            }*/
 
 
             $this->datos['user'] = $this->user;

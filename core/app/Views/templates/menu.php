@@ -10,7 +10,7 @@
 
 
                 <div class="col-6 text-end d-none d-lg-block">
-                    <a href="<?php echo base_url('users/perfil'); ?>" class="btn btn-light"><i class="fa-solid fa-user"></i> <?php echo empty($user->ofic) ? $user->name : $user->ofic . ' (' . $user->name . ')'  ?></a>
+                    <a href="<?php echo base_url('users/perfil'); ?>" class="btn btn-light"><i class="fa-solid fa-user"></i> <?php echo $user->name  ?></a>
                     <?php if ($user->type == '1') : ?>
                         <a href="<?php echo base_url('users/perfil'); ?>" class="btn btn-light"><i class="fa-solid fa-gear"></i> Administrar</a>
                     <?php endif; ?>
