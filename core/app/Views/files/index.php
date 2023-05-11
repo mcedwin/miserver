@@ -600,8 +600,8 @@ $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('uploa
 				<?php if ($allow_create_folder) : ?>
 					<form action="?" method="post" id="mkdir" />
 					<div class="input-group">
-						<input id=dirname type=text class="form-control" name=name value="" placeholder="Create New Folder" />
-						<input type="submit" class="btn btn-primary" value="create" />
+						<input id=dirname type=text class="form-control" name=name value="" placeholder="Nueva carpeta" />
+						<input type="submit" class="btn btn-primary" value="Crear" />
 					</div>
 					</form>
 
@@ -610,8 +610,8 @@ $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('uploa
 				<?php if ($allow_upload) : ?>
 
 					<div id="file_drop_target">
-						Drag Files Here To Upload
-						<b>or</b>
+						Arrastrar archivo
+						<b>o</b>
 						<input type="file" multiple />
 					</div>
 				<?php endif; ?>
