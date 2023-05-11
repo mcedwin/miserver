@@ -36,6 +36,11 @@ class Files extends BaseController
 
     public function guardar()
     {
+        $chdir = "/home/{$this->user->user}/";
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $chdir = "./";
+        }
+        chdir($chdir);
         $file = $this->request->getPost('file');
         $text = $this->request->getPost('text');
         file_put_contents($file, $text);
