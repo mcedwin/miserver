@@ -7,7 +7,7 @@ class Home extends BaseController
     public function index()
     {
         if (file_exists("./core/.env"))
-            return redirect()->to('users');
+            return redirect()->to('files');
 
         $this->addJs(array('js/home/form.js'));
 

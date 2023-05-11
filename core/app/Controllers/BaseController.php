@@ -336,14 +336,14 @@ abstract class BaseController extends Controller
         if ($this->user->id == '1') {
             $this->datos['menu_top'] = [
                 ['url' => 'users', 'base' => 'users', 'name' => 'Usuarios', 'ico' => 'fa-regular fa-folder-open'],
+                ['url' => 'files', 'base' => 'files', 'name' => 'Archivos', 'ico' => 'fa-solid fa-address-book'],
                 ['url' => 'databases', 'base' => 'databases', 'name' => 'Bases de Datos', 'ico' => 'fa-solid fa-share-from-square'],
                 ['url' => 'domains', 'base' => 'domains', 'name' => 'Dominios', 'ico' => 'fa-solid fa-address-book'],
-                ['url' => 'files', 'base' => 'files', 'name' => 'Archivos', 'ico' => 'fa-solid fa-address-book'],
             ];
         } else {
             $this->datos['menu_top'] = [
-                ['url' => 'databases', 'base' => 'databases', 'name' => 'Bases de Datos', 'ico' => 'fa-solid fa-share-from-square'],
                 ['url' => 'files', 'base' => 'files', 'name' => 'Archivos', 'ico' => 'fa-solid fa-address-book'],
+                ['url' => 'databases', 'base' => 'databases', 'name' => 'Bases de Datos', 'ico' => 'fa-solid fa-share-from-square'],
             ];
         }
 

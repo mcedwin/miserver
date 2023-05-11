@@ -13,7 +13,21 @@ class Files extends BaseController
 
     public function index()
     {
-        if(isset($_GET['do'])||isset($_POST['do'])) $this->showContent('index'); 
+        if (isset($_GET['do'])) {
+            if ($_GET['do'] == 'edit') {
+                $chdir = "/home/{$this->user->user}/";
+                if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                    $chdir = "./";
+                }
+                chdir($chdir);
+                $datos['file'] = $file = $_GET['file'];
+                $datos['text'] = file_get_contents($file);
+                $this->showContent('form', $datos);
+                exit(0);
+            }
+        }
+        $this->addJs(array('js/files/lista.js'));
+        if (isset($_GET['do']) || isset($_POST['do'])) $this->showContent('index');
         $this->showHeader();
         $this->showContent('index');
         $this->showFooter();

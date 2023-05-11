@@ -55,7 +55,7 @@ $chdir = "/home/{$user->user}/";
 
 if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
 	$chdir = "./";
-} 
+}
 
 chdir($chdir);
 
@@ -104,7 +104,7 @@ if ($_GET['do'] == 'list') {
 		exit;
 	chdir($file);
 	@mkdir($_POST['name']);
-	shell_exec("chown {$user->user} ".$_POST['name']);
+	shell_exec("chown {$user->user} " . $_POST['name']);
 	echo json_encode(['exito' => true]);
 	exit;
 } elseif ($_POST['do'] == 'upload' && $allow_upload) {
@@ -113,8 +113,8 @@ if ($_GET['do'] == 'list') {
 			err(403, "Files of this type are not allowed.");
 
 	$res = move_uploaded_file($_FILES['file_data']['tmp_name'], $file . '/' . $_FILES['file_data']['name']);
-	shell_exec("chown {$user->user} ".$file . '/' . $_FILES['file_data']['name']);
-	json_encode(['exito'=>true]);
+	shell_exec("chown {$user->user} " . $file . '/' . $_FILES['file_data']['name']);
+	json_encode(['exito' => true]);
 	exit;
 } elseif ($_GET['do'] == 'download') {
 	foreach ($disallowed_patterns as $pattern)
@@ -538,6 +538,8 @@ $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('uploa
 						if (!data.is_dir && !allow_direct_link) $link.css('pointer-events', 'none');
 						var $dl_link = $('<a/>').attr('href', '?do=download&file=' + encodeURIComponent(data.path))
 							.addClass('download').text('download');
+						var $edit_link = $('<a/>').attr('href', '?do=edit&file=' + encodeURIComponent(data.path))
+							.addClass('edit').text('Editar');
 						var $delete_link = $('<a href="#" />').attr('data-file', data.path).addClass('delete').text('delete');
 						var perms = [];
 						if (data.is_readable) perms.push('read');
@@ -550,7 +552,7 @@ $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('uploa
 								.html($('<span class="size" />').text(formatFileSize(data.size))))
 							.append($('<td/>').attr('data-sort', data.mtime).text(formatTimestamp(data.mtime)))
 							.append($('<td/>').text(perms.join('+')))
-							.append($('<td/>').append($dl_link).append(data.is_deleteable ? $delete_link : ''))
+							.append($('<td/>').append($dl_link).append($edit_link).append(data.is_deleteable ? $delete_link : ''))
 						return $html;
 					}
 
@@ -612,11 +614,11 @@ $MAX_UPLOAD_SIZE = min(asBytes(ini_get('post_max_size')), asBytes(ini_get('uploa
 			<table id="table" class="table">
 				<thead>
 					<tr>
-						<th>Name</th>
-						<th>Size</th>
-						<th>Modified</th>
-						<th>Permissions</th>
-						<th>Actions</th>
+						<th>Nombre</th>
+						<th>Tamaño</th>
+						<th>Modificado</th>
+						<th>Permisos</th>
+						<th>Acción</th>
 					</tr>
 				</thead>
 				<tbody id="list">
