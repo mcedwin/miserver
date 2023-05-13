@@ -221,12 +221,13 @@ class Databases extends BaseController
         $data = $this->validar($this->modelRelation->getFields());
 
         if (empty($id)) {
-            $data['idUser'] = $this->user->id;
             $this->modelRelation->insert($data);
-            $iduser = $data['idUser'];
-            $idshema = $data['idShema'];
             $user = $this->db->query("SELECT * FROM db_user WHERE id='{$iduser}' AND idUser='{$this->user->id}'")->getRow()->user;
             $name = $this->db->query("SELECT * FROM db_shema WHERE id='{$idshema}' AND idUser='{$this->user->id}'")->getRow()->name;
+
+            if(empty($name)||empty($user)) $this->dieMsg(false,"No hay relacion de registros.");
+            $iduser = $data['idUser'];
+            $idshema = $data['idShema'];
             $dbname = $this->user->user . '_' . $name;
             $dbuser = $this->user->user . '_' . $user;
             shell_dbrelation_new($dbname, $dbuser);
