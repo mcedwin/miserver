@@ -88,7 +88,7 @@ class Databases extends BaseController
             JOIN db_user ON db_user.id=db_relation.idUser
             JOIN db_shema ON db_shema.id=db_relation.idShema
             ";
-            $condiciones[] = "db_sehma.idUser = {$this->user->id}";
+            $condiciones[] = "db_shema.idUser = {$this->user->id}";
 
             $where = count($condiciones) > 0 ? implode(' AND ', $condiciones) : "";
             echo json_encode(
