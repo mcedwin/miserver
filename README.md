@@ -1,8 +1,9 @@
+An alternative to CPANEL, to manage a single instance or a droplet.
 # Domain
-Agregar dominio a la ip
+add domain
 A punored.com IP
 
-Agregar wildcard subdominio
+add sudomain wildcard
 CNAME  *.punored.com IP
 
 # install server in ubuntu
@@ -36,6 +37,9 @@ service ssh restart
 systemctl restart mysql
 
 ![Screenshot](res/01users.png)
+![Screenshot](res/02files.png)
+![Screenshot](res/03dbs.png)
+![Screenshot](res/04doms.png)
 
 # MYSQL
 Configurar bind 0.0.0.0
@@ -44,16 +48,16 @@ sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
 # PHP display_errors = on
 sudo nano /etc/php/8.1/apache2/php.ini
 
-# poner en PasswordAuthentication yes, en caso que sea por llaves.ppk
+# PasswordAuthentication yes, for ppk login
 sudo nano /etc/ssh/sshd_config
 
-# Reinciar todo
+# Reset all
 sudo apachectl restart
 sudo service ssh restart
 sudo systemctl restart mysql
 
-# Para denegar acceso a home, para probar
+# For deny user home directory (try)
 https://unix.stackexchange.com/questions/85537/how-to-hide-someone-elses-directories-from-a-user
 
-# actualizar certificados
+# refresy certs
 sudo certbot --apache
