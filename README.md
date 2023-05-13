@@ -1,62 +1,59 @@
-# CodeIgniter 4 Application Starter
+# Domain
+Agregar dominio a la ip
+A punored.com IP
 
-## What is CodeIgniter?
+Agregar wildcard subdominio
+CNAME  *.punored.com IP
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+# install server in ubuntu
+apt update
+apt install apache2
+apt install mysql-server
+apt install php libapache2-mod-php php-mysql
+apt-get install -y php8.1-cli php8.1-common php8.1-mysql php8.1-zip php8.1-gd php8.1-mbstring php8.1-curl php8.1-xml php8.1-bcmath php8.1-intl
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+# install composer
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+sudo apt-get install curl unzip
+sudo apt-get install php php-curl
+curl -sS https://getcomposer.org/installer -o composer-setup.php
+php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+composer self-update 
 
-The user guide corresponding to the latest version of the framework can be found
-[here](https://codeigniter4.github.io/userguide/).
+# server
+git clone
+cd server/core
+composer install
+cd server
+php -S 0.0.0.0:8004
 
-## Installation & updates
+# install cerbot
+sudo apt install certbot python3-certbot-apache
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+# serstar services
+apachectl restart
+service ssh restart
+systemctl restart mysql
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+![Screenshot](res/01users.png)
 
-## Setup
+# MYSQL
+Configurar bind 0.0.0.0
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+# PHP display_errors = on
+sudo nano /etc/php/8.1/apache2/php.ini
 
-## Important Change with index.php
+# poner en PasswordAuthentication yes, en caso que sea por llaves.ppk
+sudo nano /etc/ssh/sshd_config
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+# Reinciar todo
+sudo apachectl restart
+sudo service ssh restart
+sudo systemctl restart mysql
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+# Para denegar acceso a home, para probar
+https://unix.stackexchange.com/questions/85537/how-to-hide-someone-elses-directories-from-a-user
 
-**Please** read the user guide for a better explanation of how CI4 works!
-
-## Repository Management
-
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
-
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
-
-## Server Requirements
-
-PHP version 7.4 or higher is required, with the following extensions installed:
-
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
-
-Additionally, make sure that the following extensions are enabled in your PHP:
-
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+# actualizar certificados
+sudo certbot --apache
