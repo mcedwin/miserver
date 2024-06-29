@@ -11,7 +11,7 @@ apt update
 apt install apache2
 apt install mysql-server
 apt install php libapache2-mod-php php-mysql
-apt-get install -y php8.1-cli php8.1-common php8.1-mysql php8.1-zip php8.1-gd php8.1-mbstring php8.1-curl php8.1-xml php8.1-bcmath php8.1-intl
+apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
 
 # install composer
 
