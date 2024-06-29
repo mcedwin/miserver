@@ -199,4 +199,23 @@ class App extends BaseConfig
      * @see http://www.w3.org/TR/CSP/
      */
     public bool $CSPEnabled = false;
+    function __construct()
+    {
+			
+        $a = str_replace(['/', '\\'], '#', $_SERVER['REQUEST_URI']);
+        $b = str_replace(['/', '\\'], '#', preg_replace("#^/home#",'',ROOTPATH));
+
+        $a =  explode('#', $a);
+        $b =  explode('#', $b);
+
+        $result = array_intersect($a,  $b);
+        $uri = implode("/", $result);
+        $this->baseURL = sprintf(
+            "%s://%s%s",
+            isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https' : 'http',
+            $_SERVER['HTTP_HOST'],
+            $uri
+        );
+		
+    }
 }
