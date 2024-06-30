@@ -25,7 +25,7 @@ composer self-update
 git clone https://github.com/mcedwin/miserver.git
 cd miserver/core
 composer install
-cd server
+cd miserver
 php -S 0.0.0.0:8004
 
 # install cerbot
