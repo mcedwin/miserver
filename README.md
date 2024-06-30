@@ -22,8 +22,8 @@ php composer-setup.php --install-dir=/usr/local/bin --filename=composer
 composer self-update 
 
 # server
-git clone
-cd server/core
+git clone https://github.com/mcedwin/miserver.git
+cd miserver/core
 composer install
 cd server
 php -S 0.0.0.0:8004
