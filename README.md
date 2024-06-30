@@ -46,7 +46,7 @@ Configurar bind 0.0.0.0
 sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
 
 # PHP display_errors = on
-sudo nano /etc/php/8.1/apache2/php.ini
+sudo nano /etc/php/8.3/apache2/php.ini
 
 # PasswordAuthentication yes, for ppk login
 sudo nano /etc/ssh/sshd_config
