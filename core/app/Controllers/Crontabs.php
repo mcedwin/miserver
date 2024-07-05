@@ -33,6 +33,8 @@ class Crontabs extends BaseController
     shell_exec("sudo chown root:crontab /var/spool/cron/crontabs/{$this->user->user}");
     shell_exec("sudo chmod 600 /var/spool/cron/crontabs/{$this->user->user}");
 
+    shell_exec("sudo systemctl restart cron");
+
     $this->dieMsg(true, '', base_url('crontabs'));
   }
 }
