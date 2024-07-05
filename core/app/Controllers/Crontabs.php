@@ -30,7 +30,7 @@ class Crontabs extends BaseController
     //$cont = file_put_contents("/var/spool/cron/crontabs/".$this->user->user, $cont);
 
     shell_exec("echo '{$cont}' >> /var/spool/cron/crontabs/{$this->user->user}");
-    shell_exec("sudo chown {$this->user->user}:crontab /var/spool/cron/crontabs/{$this->user->user}");
+    shell_exec("sudo chown root:crontab /var/spool/cron/crontabs/{$this->user->user}");
     shell_exec("sudo chmod 600 /var/spool/cron/crontabs/{$this->user->user}");
 
     $this->dieMsg(true, '', base_url('crontabs'));
