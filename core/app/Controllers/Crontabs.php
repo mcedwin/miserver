@@ -27,6 +27,7 @@ class Crontabs extends BaseController
 
   public function guardar(){
     $cont = $this->request->getPost('texto');
+    $cont = trim($cont);
     $cont = file_put_contents("/var/spool/cron/crontabs/".$this->user->user, $cont);
 
     //shell_exec("echo '{$cont}' >> /var/spool/cron/crontabs/{$this->user->user}");
