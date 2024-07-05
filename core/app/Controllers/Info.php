@@ -18,7 +18,7 @@ class Info extends BaseController
   public function index()
   {
 
-    $comando = 'ls -l';
+    $comando = 'df -h';
 
     // Ejecutar el comando y capturar la salida
     $resultado = shell_exec($comando);
