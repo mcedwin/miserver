@@ -33,10 +33,9 @@
   <div class="row">
     <?php
     foreach ($infos as $row) :
-      $row = explode("\t", $row);
     ?>
-      <div class="col-md-4"><?php echo $row['data'] ?></div>
-      <div class="col-md-8"><?php echo $row['size'] ?></div>
+      <div class="col-md-4"><?php echo $row->database_name ?></div>
+      <div class="col-md-8"><?php echo $row->size_mb ?></div>
     <?php endforeach; ?>
   </div>
 </div>

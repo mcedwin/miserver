@@ -41,17 +41,17 @@ tmpfs            97M   12K   97M   1% /run/user/1000';
     $datos['homes'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
 
 
-    $rows  = $this->db->query('SELECT * FROM db_shema')->getResult();
-    $infos = [];
-    foreach ($rows as $row) {
+   // $rows  = $this->db->query('SELECT * FROM db_shema')->getResult();
+   // $infos = [];
+    //foreach ($rows as $row) {
       $sql = "SELECT table_schema AS database_name,
                ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
         FROM information_schema.tables
-        WHERE table_schema = '" . $row->name . "'
+        WHERE 1
         GROUP BY table_schema";
-      $info = $this->db->query($sql)->getRow();
-      $infos[] = ['data'=>$row->name,'size'=>$info->size_mb];
-    }
+      $infos = $this->db->query($sql)->getResult();
+      //$infos[] = ['data'=>$row->database_name,'size'=>$info->size_mb];
+   // }
 
     $datos['infos']  = $infos;
 
