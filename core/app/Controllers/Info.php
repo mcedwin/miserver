@@ -41,19 +41,29 @@ tmpfs            97M   12K   97M   1% /run/user/1000';
     $datos['homes'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
 
 
-   // $rows  = $this->db->query('SELECT * FROM db_shema')->getResult();
-   // $infos = [];
+    // $rows  = $this->db->query('SELECT * FROM db_shema')->getResult();
+    // $infos = [];
     //foreach ($rows as $row) {
-      $sql = "SELECT table_schema AS database_name,
-               ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
-        FROM information_schema.tables
-        WHERE 1
-        GROUP BY table_schema";
-      $infos = $this->db->query($sql)->getResult();
-      //$infos[] = ['data'=>$row->database_name,'size'=>$info->size_mb];
-   // }
+    // $sql = "SELECT table_schema AS database_name,
+    //          ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
+    //   FROM information_schema.tables
+    //   WHERE 1
+    //   GROUP BY table_schema";
+    // $infos = $this->db->query($sql)->getResult();
+    //$infos[] = ['data'=>$row->database_name,'size'=>$info->size_mb];
+    // }
 
-    $datos['infos']  = $infos;
+    $sql = 'mysql -e "SELECT table_schema AS database_name,
+            ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
+            FROM information_schema.tables
+        WHERE 1
+        GROUP BY table_schema"';
+    $str = shell_exec($sql);
+
+    $str = str_replace(['|', '-', '+'], '', $str);
+    $datos['info'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
+    //die(print_r($datos['info']));
+    //  $datos['infos']  = $infos;
 
     $this->showHeader();
     $this->ShowContent('index', $datos);

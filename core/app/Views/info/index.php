@@ -32,10 +32,13 @@
   <h1>MySQL</h1>
   <div class="row">
     <?php
-    foreach ($infos as $row) :
+    foreach ($info as $row) :
+      $row =trim($row);
+      if(empty($row))continue;
+      $row = explode("\t", $row);
     ?>
-      <div class="col-md-4"><?php echo $row->database_name ?></div>
-      <div class="col-md-8"><?php echo $row->size_mb ?></div>
+      <div class="col-md-4"><?php echo $row[0] ?></div>
+      <div class="col-md-8"><?php echo $row[1] ?></div>
     <?php endforeach; ?>
   </div>
 </div>
