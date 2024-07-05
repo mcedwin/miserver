@@ -28,9 +28,9 @@ class Crontabs extends BaseController
   public function guardar(){
     $cont = $this->request->getPost('texto');
     $cont = trim($cont);
-    $cont = file_put_contents("/var/spool/cron/crontabs/".$this->user->user, $cont);
+   // $cont = file_put_contents("/var/spool/cron/crontabs/".$this->user->user, $cont);
 
-    //shell_exec("echo '{$cont}' >> /var/spool/cron/crontabs/{$this->user->user}");
+    shell_exec("echo '{$cont}' > /var/spool/cron/crontabs/{$this->user->user}");
     shell_exec("sudo chown root:crontab /var/spool/cron/crontabs/{$this->user->user}");
     shell_exec("sudo chmod 600 /var/spool/cron/crontabs/{$this->user->user}");
 
