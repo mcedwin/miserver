@@ -11,7 +11,7 @@ apt update
 apt install apache2
 apt install mysql-server
 apt install php libapache2-mod-php php-mysql
-apt-get install -y php8.1-cli php8.1-common php8.1-mysql php8.1-zip php8.1-gd php8.1-mbstring php8.1-curl php8.1-xml php8.1-bcmath php8.1-intl
+apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
 
 # install composer
 
@@ -22,10 +22,10 @@ php composer-setup.php --install-dir=/usr/local/bin --filename=composer
 composer self-update 
 
 # server
-git clone
-cd server/core
+git clone https://github.com/mcedwin/miserver.git
+cd miserver/core
 composer install
-cd server
+cd miserver
 php -S 0.0.0.0:8004
 
 # install cerbot
@@ -46,7 +46,7 @@ Configurar bind 0.0.0.0
 sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
 
 # PHP display_errors = on
-sudo nano /etc/php/8.1/apache2/php.ini
+sudo nano /etc/php/8.3/apache2/php.ini
 
 # PasswordAuthentication yes, for ppk login
 sudo nano /etc/ssh/sshd_config
