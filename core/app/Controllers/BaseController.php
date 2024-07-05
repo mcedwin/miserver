@@ -338,12 +338,14 @@ abstract class BaseController extends Controller
                 ['url' => 'users', 'base' => 'users', 'name' => 'Usuarios', 'ico' => 'fa-regular fa-folder-open'],
                 ['url' => 'files', 'base' => 'files', 'name' => 'Archivos', 'ico' => 'fa-solid fa-address-book'],
                 ['url' => 'databases', 'base' => 'databases', 'name' => 'Bases de Datos', 'ico' => 'fa-solid fa-share-from-square'],
+                ['url' => 'crontabs', 'base' => 'crontabs', 'name' => 'CronTab', 'ico' => 'fa-regular fa-clock'],
                 ['url' => 'domains', 'base' => 'domains', 'name' => 'Dominios', 'ico' => 'fa-solid fa-address-book'],
             ];
         } else {
             $this->datos['menu_top'] = [
                 ['url' => 'files', 'base' => 'files', 'name' => 'Archivos', 'ico' => 'fa-solid fa-address-book'],
                 ['url' => 'databases', 'base' => 'databases', 'name' => 'Bases de Datos', 'ico' => 'fa-solid fa-share-from-square'],
+                ['url' => 'crontabs', 'base' => 'crontabs', 'name' => 'CronTab', 'ico' => 'fa-regular fa-clock'],
             ];
         }
 
