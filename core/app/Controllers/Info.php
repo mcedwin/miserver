@@ -30,15 +30,30 @@ tmpfs           5.0M     0  5.0M   0% /run/lock
 /dev/vda15      105M  6.1M   99M   6% /boot/efi
 tmpfs            97M   12K   97M   1% /run/user/0
 tmpfs            97M   12K   97M   1% /run/user/1000';
- $datos['datos'] = explode("\n",preg_replace('#[ ]+#',"\t",$str));
+    $datos['datos'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
 
- $str = shell_exec('du -h --max-depth=1 /home');
- $str = '472M    /home/punored
+    $str = shell_exec('du -h --max-depth=1 /home');
+    $str = '472M    /home/punored
 91M     /home/regino
 32K     /home/piruw
 2.8G    /home/perulist
 3.4G    /home';
- $datos['homes'] = explode("\n",preg_replace('#[ ]+#',"\t",$str));
+    $datos['homes'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
+
+
+    $rows  = $this->db->query('SELECT * FROM db_shema')->getResult();
+    $infos = [];
+    foreach ($rows as $row) {
+      $sql = "SELECT table_schema AS database_name,
+               ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
+        FROM information_schema.tables
+        WHERE table_schema = '" . $row->name . "'
+        GROUP BY table_schema";
+      $info = $this->db->query($sql)->getRow();
+      $infos[] = ['data'=>$row->name,'size'=>$info->size_mb];
+    }
+
+    $datos['infos']  = $infos;
 
     $this->showHeader();
     $this->ShowContent('index', $datos);

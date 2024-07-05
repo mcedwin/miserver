@@ -29,4 +29,14 @@
       <div class="col-md-8"><?php echo $row[0] ?></div>
     <?php endforeach; ?>
   </div>
+  <h1>MySQL</h1>
+  <div class="row">
+    <?php
+    foreach ($infos as $row) :
+      $row = explode("\t", $row);
+    ?>
+      <div class="col-md-4"><?php echo $row['data'] ?></div>
+      <div class="col-md-8"><?php echo $row['size'] ?></div>
+    <?php endforeach; ?>
+  </div>
 </div>
