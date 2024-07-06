@@ -156,11 +156,11 @@ class Users extends BaseController
         $domain = $row->domain;
         $dbusers = $this->db->query("SELECT * FROM db_user WHERE idUser='{$id}'")->getResult();
         foreach ($dbusers as $row) {
-            shell_dbuser_delete($row->user);
+            shell_dbuser_delete($user . '_' . $row->user);
         }
         $dbshemas = $this->db->query("SELECT * FROM db_shema WHERE idUser='{$id}'")->getResult();
         foreach ($dbshemas as $row) {
-            shell_db_delete($row->name);
+            shell_db_delete($user . '_' . $row->name);
         }
 
 
