@@ -35,6 +35,7 @@
   <div class="row">
     <?php
     foreach ($info as $row) :
+      if ($user->id != '1') if(!preg_match("#{$user->user}#",$row))continue;
       $row = trim($row);
       if (empty($row)) continue;
       $row = explode("\t", $row);

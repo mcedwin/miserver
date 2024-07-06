@@ -21,7 +21,7 @@ class Info extends BaseController
 
     $str = shell_exec('df -h');
 
-    $str = 'Filesystem      Size  Used Avail Use% Mounted on
+   /* $str = 'Filesystem      Size  Used Avail Use% Mounted on
 tmpfs            97M  1.1M   96M   2% /run
 /dev/vda1        24G  6.4G   17G  28% /
 tmpfs           481M     0  481M   0% /dev/shm
@@ -29,15 +29,15 @@ tmpfs           5.0M     0  5.0M   0% /run/lock
 /dev/vda16      881M  112M  708M  14% /boot
 /dev/vda15      105M  6.1M   99M   6% /boot/efi
 tmpfs            97M   12K   97M   1% /run/user/0
-tmpfs            97M   12K   97M   1% /run/user/1000';
+tmpfs            97M   12K   97M   1% /run/user/1000';*/
     $datos['datos'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
 
     $str = shell_exec('du -h --max-depth=1 /home');
-    $str = '472M    /home/punored
+   /* $str = '472M    /home/punored
 91M     /home/regino
 32K     /home/piruw
 2.8G    /home/perulist
-3.4G    /home';
+3.4G    /home';*/
     $datos['homes'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
 
 
