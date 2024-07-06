@@ -32,7 +32,7 @@ tmpfs            97M   12K   97M   1% /run/user/0
 tmpfs            97M   12K   97M   1% /run/user/1000';*/
 
     $datos['datos'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
-    //die(print_r($datos['datos']));
+    die(print_r($datos['datos']));
     $str = shell_exec('du -h --max-depth=1 /home');
    /* $str = '472M    /home/punored
 91M     /home/regino
