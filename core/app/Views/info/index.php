@@ -7,6 +7,8 @@
       foreach ($datos as $i => $row) :
         if ($i == 0) continue;
         $row = explode("\t", $row);
+        print_r($row);
+        die("hols");
       ?>
         <div class="col-md-2"><?php echo $row[5] ?></div>
         <div class="col-md-8">
