@@ -162,13 +162,13 @@ class Users extends BaseController
             shell_db_delete($row->name);
         }
 
-        shell_domain_delete($user);
+        shell_domain_delete($user,$user->domain);
         $domains = $this->db->query("SELECT * FROM domain WHERE idUser='{$id}'")->getResult();
         foreach ($domains as $row) {
-            shell_domain_delete($user . '_' . $row->id);
+            shell_domain_delete($user . '_' . $row->id,$row->domain);
         }
 
-        shell_user_delete($user);
+        shell_user_delete($user,$row->domain);
 
         shell_reset_apache();
 
