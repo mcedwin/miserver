@@ -30,6 +30,7 @@ tmpfs           5.0M     0  5.0M   0% /run/lock
 /dev/vda15      105M  6.1M   99M   6% /boot/efi
 tmpfs            97M   12K   97M   1% /run/user/0
 tmpfs            97M   12K   97M   1% /run/user/1000';*/
+die($str);
     $datos['datos'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
 
     $str = shell_exec('du -h --max-depth=1 /home');
