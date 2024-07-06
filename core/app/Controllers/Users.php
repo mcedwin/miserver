@@ -171,7 +171,7 @@ class Users extends BaseController
             shell_domain_delete($user . '_' . $row->id,$row->domain,$this->user->token);
         }
 
-        shell_user_delete($user,$row->domain,$this->user->token);
+        shell_user_delete($user,$domain,$this->user->token);
 
         shell_reset_apache();
 
