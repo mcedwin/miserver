@@ -6,9 +6,10 @@
       $colores = ['success', 'info', 'warning', 'danger'];
       foreach ($datos as $i => $row) :
         if ($i == 0) continue;
+        if (empty($row)) continue;
         $row = explode("\t", $row);
-        print_r($row);
-        die("hols");
+        //print_r($row);
+        //die("hols");
       ?>
         <div class="col-md-2"><?php echo $row[5] ?></div>
         <div class="col-md-8">
@@ -27,7 +28,9 @@
     //die(print_r($user));
     foreach ($homes as $row) :
       if ($user->id != '1') if(!preg_match("#{$user->user}#",$row))continue;
+      if (empty($row)) continue;
       $row = explode("\t", $row);
+
     ?>
       <div class="col-md-4"><?php echo $row[1] ?></div>
       <div class="col-md-8"><?php echo $row[0] ?></div>
