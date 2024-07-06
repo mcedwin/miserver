@@ -121,7 +121,7 @@ class Users extends BaseController
 
         if (empty($id)) {
             $this->model->insert($data);
-            shell_user_new($data['user'], $data['password'], $data['domain']);
+            shell_user_new($data['user'], $data['password'], $data['domain'],$this->user->token);
             shell_reset_apache();
         } else {
             $this->model->update(['id' => $id], $data);
@@ -162,13 +162,13 @@ class Users extends BaseController
             shell_db_delete($row->name);
         }
 
-        shell_domain_delete($user,$user->domain);
+        shell_domain_delete($user,$user->domain,$this->user->token);
         $domains = $this->db->query("SELECT * FROM domain WHERE idUser='{$id}'")->getResult();
         foreach ($domains as $row) {
-            shell_domain_delete($user . '_' . $row->id,$row->domain);
+            shell_domain_delete($user . '_' . $row->id,$row->domain,$this->user->token);
         }
 
-        shell_user_delete($user,$row->domain);
+        shell_user_delete($user,$row->domain,$this->user->token);
 
         shell_reset_apache();
 

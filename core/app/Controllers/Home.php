@@ -22,9 +22,10 @@ class Home extends BaseController
         $domain = $this->request->getPost('domain');
         $user = $this->request->getPost('user');
         $password = $this->request->getPost('password');
+        $token = $this->request->getPost('token');
 
         helper('server');
-        shell_init($user, $password, $domain);
+        shell_init($user, $password, $domain,$token);
 
         $file = "./core/.env";
         if (!file_exists("./core/.env")) {

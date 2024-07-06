@@ -81,7 +81,7 @@ class Domains extends BaseController
             $this->model->insert($data);
             $id = $this->model->getInsertID();
             $data['user'] = $this->user->user;
-            shell_domain_new($data['user'], $data['user'] . '_' . $id, $data['domain'], $data['folder']);
+            shell_domain_new($data['user'], $data['user'] . '_' . $id, $data['domain'], $data['folder'],$this->user->token);
             shell_reset_apache();
         } else {
             $this->model->update(['id' => $id], $data);
@@ -94,7 +94,7 @@ class Domains extends BaseController
     {
         $this->dieAjax();
         $row = $this->db->query("SELECT * FROM domain WHERE id='{$id}' AND idUser='{$this->user->id}'")->getRow();
-        shell_domain_delete($this->user->user . '_' . $id,$row->domain);
+        shell_domain_delete($this->user->user . '_' . $id,$row->domain,$this->user->token);
         shell_reset_apache();
         $this->model->where("id='{$id}' AND id!=1")->delete();
         $this->dieMsg();

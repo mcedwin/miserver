@@ -14,7 +14,7 @@ function shell_reset_ssh()
   shell_exec("service ssh restart");
 }
 
-function shell_init($user, $password, $domain)
+function shell_init($user, $password, $domain,$token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
@@ -47,7 +47,7 @@ Require all granted
   echo shell_exec("mysql -u root miserver < res/miserver.sql");
 
   echo shell_exec("mysql -u root -e \"USE miserver;
-    INSERT INTO config(id,domain) VALUES('1','{$domain}');
+    INSERT INTO config(id,domain,token) VALUES('1','{$domain}','{$token}');
     INSERT INTO user(id,user,password,description,domain,active) VALUES(1,'{$user}','{$password}','Root','{$domain}','1');
     \"");
 
@@ -56,7 +56,7 @@ Require all granted
 }
 
 
-function shell_user_new($user, $password, $domain)
+function shell_user_new($user, $password, $domain,$token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
@@ -81,7 +81,7 @@ Require all granted
 
 
   $ipAddress = file_get_contents('https://api.ipify.org');
-  curl_adddomain('dop_v1_a44608b3f6c003d87e7d1b385cc794689f2c1a6610f05a6a522b9c68b55d8241', $domain, $ipAddress);
+  curl_adddomain($token, $domain, $ipAddress);
 
   shell_exec("mysql -u root -e \"
         CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
@@ -159,19 +159,19 @@ function shell_user_edit($user, $password)
     \"");
 }
 
-function shell_user_delete($user,$domain)
+function shell_user_delete($user,$domain,$token)
 {
   shell_exec("userdel {$user}");
   shell_exec("rm -r /home/{$user}");
 
   shell_exec("mysql -u root -e \"DROP USER '{$user}'@'localhost';DROP USER '{$user}'@'%';\"");
 
-  curl_removedomain($domain,'dop_v1_a44608b3f6c003d87e7d1b385cc794689f2c1a6610f05a6a522b9c68b55d8241');
+  curl_removedomain($domain,$token);
 
   shell_exec("mysql -u root -e 'DROP DATABASE {$user};'");
 }
 
-function shell_domain_new($user, $name, $domain, $folder)
+function shell_domain_new($user, $name, $domain, $folder,$token)
 {
   shell_exec("mkdir /home/{$user}/{$folder}");
   shell_exec("chmod o+x /home/{$user}");
@@ -191,15 +191,15 @@ Require all granted
 ' >> /etc/apache2/apache2.conf");
 
 $ipAddress = file_get_contents('https://api.ipify.org');
-curl_adddomain('dop_v1_a44608b3f6c003d87e7d1b385cc794689f2c1a6610f05a6a522b9c68b55d8241', $domain, $ipAddress);
+curl_adddomain($token, $domain, $ipAddress);
 
 }
 
-function shell_domain_delete($name,$domain)
+function shell_domain_delete($name,$domain,$token)
 {
   $cont = @file_get_contents("/etc/apache2/apache2.conf");
   $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
-  curl_removedomain($domain,'dop_v1_a44608b3f6c003d87e7d1b385cc794689f2c1a6610f05a6a522b9c68b55d8241');
+  curl_removedomain($domain,$token);
   $cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
 }
 

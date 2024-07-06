@@ -76,6 +76,7 @@ abstract class BaseController extends Controller
             'user' => $session->get('user'),
             'name' => $session->get('name'),
             'type' => $session->get('type'),
+            'token' => $session->get('token'),
         ];
 
         $this->title = 'Mi Server';
@@ -94,12 +95,12 @@ abstract class BaseController extends Controller
             $this->db = db_connect();
 
 
-            $row = $this->db->query("SELECT domain FROM config WHERE id='1'")->getRow();
+            $row = $this->db->query("SELECT domain,token FROM config WHERE id='1'")->getRow();
+            $this->user->token = $row->token;
 
             /*if (!empty($this->user->id)) {
                 $this->user->name = $row->domain;
             }*/
-
 
             $this->datos['user'] = $this->user;
 
