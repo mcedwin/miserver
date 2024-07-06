@@ -116,10 +116,10 @@ function curl_adddomain($apiToken, $domainName, $ipAddress)
   curl_close($ch);
 
   if ($httpCode == 201) {
-    echo "El dominio $domainName ha sido agregado correctamente.";
+   // echo "El dominio $domainName ha sido agregado correctamente.";
   } else {
-    echo "Hubo un problema al agregar el dominio $domainName. Código HTTP: $httpCode\n";
-    echo "Respuesta de la API: $response";
+   // echo "Hubo un problema al agregar el dominio $domainName. Código HTTP: $httpCode\n";
+   // echo "Respuesta de la API: $response";
   }
 }
 
@@ -143,9 +143,9 @@ function curl_removedomain($domain,$apiToken)
   curl_close($ch);
 
   if ($httpCode == 204) {
-    echo "El dominio $domain ha sido eliminado correctamente.";
+    //echo "El dominio $domain ha sido eliminado correctamente.";
   } else {
-    echo "Hubo un problema al eliminar el dominio $domain. Código HTTP: $httpCode";
+   // echo "Hubo un problema al eliminar el dominio $domain. Código HTTP: $httpCode";
   }
 }
 

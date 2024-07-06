@@ -95,7 +95,7 @@ abstract class BaseController extends Controller
             $this->db = db_connect();
 
 
-            $row = $this->db->query("SELECT domain,token FROM config WHERE id='1'")->getRow();
+            $row = $this->db->query("SELECT domain,token FROM config WHERE 1")->getRow();
             $this->user->token = $row->token;
 
             /*if (!empty($this->user->id)) {
