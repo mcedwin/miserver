@@ -153,6 +153,7 @@ class Users extends BaseController
         if ($id == '1') $this->dieMsg(false, "Usuario principal");
         $row = $this->db->query("SELECT * FROM user WHERE id='{$id}'")->getRow();
         $user = $row->user;
+        $domain = $row->domain;
         $dbusers = $this->db->query("SELECT * FROM db_user WHERE idUser='{$id}'")->getResult();
         foreach ($dbusers as $row) {
             shell_dbuser_delete($row->user);
@@ -164,7 +165,7 @@ class Users extends BaseController
 
 
 
-        shell_domain_delete($user,$row->domain,$this->user->token);
+        shell_domain_delete($user,$domain,$this->user->token);
         $domains = $this->db->query("SELECT * FROM domain WHERE idUser='{$id}'")->getResult();
         foreach ($domains as $row) {
             shell_domain_delete($user . '_' . $row->id,$row->domain,$this->user->token);
