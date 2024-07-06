@@ -14,7 +14,7 @@ function shell_reset_ssh()
   shell_exec("service ssh restart");
 }
 
-function shell_init($user, $password, $domain,$token)
+function shell_init($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
@@ -39,8 +39,15 @@ Require all granted
 ######FIN {$user}######
 ' >> /etc/apache2/apache2.conf");
 
+  shell_exec("mysql -u root -e \"
+    CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
+    CREATE USER '{$user}'@'localhost' IDENTIFIED BY '{$password}';
+    \"");
+
   echo shell_exec("mysql -u root -e \"CREATE DATABASE miserver;CREATE USER 'miserver'@'localhost' IDENTIFIED BY 'password';
     GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost';
+    GRANT ALL PRIVILEGES ON *.* TO '{$user}'@'localhost';
+    GRANT ALL PRIVILEGES ON *.* TO '{$user}'@'%';
     FLUSH PRIVILEGES;
     \"");
 
@@ -51,12 +58,12 @@ Require all granted
     INSERT INTO user(id,user,password,description,domain,active) VALUES(1,'{$user}','{$password}','Root','{$domain}','1');
     \"");
 
-  shell_exec("apachectl restart");
+  shell_reset_apache();
   shell_exec("usermod -aG sudo {$user}");
 }
 
 
-function shell_user_new($user, $password, $domain,$token)
+function shell_user_new($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
@@ -116,14 +123,14 @@ function curl_adddomain($apiToken, $domainName, $ipAddress)
   curl_close($ch);
 
   if ($httpCode == 201) {
-   // echo "El dominio $domainName ha sido agregado correctamente.";
+    // echo "El dominio $domainName ha sido agregado correctamente.";
   } else {
-   // echo "Hubo un problema al agregar el dominio $domainName. Código HTTP: $httpCode\n";
-   // echo "Respuesta de la API: $response";
+    // echo "Hubo un problema al agregar el dominio $domainName. Código HTTP: $httpCode\n";
+    // echo "Respuesta de la API: $response";
   }
 }
 
-function curl_removedomain($domain,$apiToken)
+function curl_removedomain($domain, $apiToken)
 {
 
 
@@ -145,7 +152,7 @@ function curl_removedomain($domain,$apiToken)
   if ($httpCode == 204) {
     //echo "El dominio $domain ha sido eliminado correctamente.";
   } else {
-   // echo "Hubo un problema al eliminar el dominio $domain. Código HTTP: $httpCode";
+    // echo "Hubo un problema al eliminar el dominio $domain. Código HTTP: $httpCode";
   }
 }
 
@@ -159,19 +166,19 @@ function shell_user_edit($user, $password)
     \"");
 }
 
-function shell_user_delete($user,$domain,$token)
+function shell_user_delete($user, $domain, $token)
 {
   shell_exec("userdel {$user}");
   shell_exec("rm -r /home/{$user}");
 
   shell_exec("mysql -u root -e \"DROP USER '{$user}'@'localhost';DROP USER '{$user}'@'%';\"");
 
-  curl_removedomain($domain,$token);
+  curl_removedomain($domain, $token);
 
   shell_exec("mysql -u root -e 'DROP DATABASE {$user};'");
 }
 
-function shell_domain_new($user, $name, $domain, $folder,$token)
+function shell_domain_new($user, $name, $domain, $folder, $token)
 {
   shell_exec("mkdir /home/{$user}/{$folder}");
   shell_exec("chmod o+x /home/{$user}");
@@ -190,16 +197,15 @@ Require all granted
 ######FIN {$name}######
 ' >> /etc/apache2/apache2.conf");
 
-$ipAddress = file_get_contents('https://api.ipify.org');
-curl_adddomain($token, $domain, $ipAddress);
-
+  $ipAddress = file_get_contents('https://api.ipify.org');
+  curl_adddomain($token, $domain, $ipAddress);
 }
 
-function shell_domain_delete($name,$domain,$token)
+function shell_domain_delete($name, $domain, $token)
 {
   $cont = @file_get_contents("/etc/apache2/apache2.conf");
   $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
-  curl_removedomain($domain,$token);
+  curl_removedomain($domain, $token);
   $cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
 }
 

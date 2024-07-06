@@ -17,7 +17,7 @@ class GeneralModel extends Model
             'id' => array('label' => 'ID'),
             'user' => array('label' => 'Usuario', ),
             'password' => array('label' => 'Password','type'=>'password' ,'required' => false),
-            'description' => array('label' => 'Descripción','required' => fals),
+            'description' => array('label' => 'Descripción','required' => false),
             'domain' => array('label' => 'Dominio'),
             'active' => array('label' => 'Tipo'),
         ]];
