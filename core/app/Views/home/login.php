@@ -9,6 +9,10 @@
                     <input type="text" class="form-control" name="domain" required>
                 </div>
                 <div class="form-group mb-2">
+                    <label for="">Token DO</label>
+                    <input type="text" class="form-control" name="token" required>
+                </div>
+                <div class="form-group mb-2">
                     <label for="">Usuario</label>
                     <input type="text" class="form-control" name="user" required>
                 </div>
