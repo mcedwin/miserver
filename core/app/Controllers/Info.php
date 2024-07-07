@@ -90,8 +90,9 @@ tmpfs            97M   12K   97M   1% /run/user/1000';*/
     $this->showFooter();
   }
 
-  function download($archivo)
+  function download()
   {
+    $archivo= $_GET['file'];
     $archivo = '/backups/'.$archivo;
     if (file_exists($archivo)) {
       // Define las cabeceras para forzar la descarga
