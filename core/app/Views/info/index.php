@@ -59,7 +59,7 @@
       if (!isset($row[8])) continue;
 $row[8] = trim($row[8]);
     ?>
-      <div class="col-md-4"><a href="<?php echo base_url('info/download').'?file='.$row[8]; ?>"><?php echo $row[8] ?></a></div>
+      <div class="col-md-4"><a href="<?php echo base_url('backups/'.$row[8]); ?>"><?php echo $row[8] ?></a></div>
       <div class="col-md-8"><?php echo $row[4]/1024/1024 ?></div>
     <?php endforeach; ?>
   </div>
