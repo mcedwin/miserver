@@ -92,13 +92,6 @@ tmpfs            97M   12K   97M   1% /run/user/1000';*/
 
   function download()
   {
-    ini_set('post_max_size', '100000M');
-ini_set('upload_max_filesize', '10000M');
-
-    ini_set('max_input_time', '3000');
-    ini_set('memory_limit', '1256M');
-    ini_set('max_execution_time', '3000');
-
     $archivo= $_GET['file'];
     $archivo = '/backups/'.$archivo;
     if (file_exists($archivo)) {
