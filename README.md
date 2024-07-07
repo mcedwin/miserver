@@ -12,7 +12,6 @@ apt install apache2
 apt install mysql-server
 apt install php libapache2-mod-php php-mysql
 apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
-sudo apt update
 sudo apt install vsftpd
 
 echo -e 'pasv_enable=YES\npasv_min_port=10000\npasv_max_port=10100\nchroot_local_user=YES\nallow_writeable_chroot=YES\nforce_dot_files=YES' >> /etc/vsftpd.conf
