@@ -80,3 +80,21 @@ https://unix.stackexchange.com/questions/85537/how-to-hide-someone-elses-directo
 
 # refresy certs
 sudo certbot --apache
+
+
+
+# backups
+echo -e '#!/bin/bash\n# Configuración\nBACKUP_DIR="/root/miserver/backups"\nDATE=$(date +%F)\n# Crear directorio de backups si no existe\nmkdir -p $BACKUP_DIR\n# Obtener lista de usuarios en /home (excluir root y cuentas del sistema)\nusers=$(ls /home | grep -Ev "root|lost\+found")\n# Iterar sobre cada usuario y hacer el backup\nfor user in $users; do\n    tar -czvf $BACKUP_DIR/$user-backup-$DATE.tar.gz /home/$user\ndone\n# Eliminar backups antiguos (opcional)\nfind $BACKUP_DIR -type f -name "*.tar.gz" -mtime +7 -exec rm {} \;' > backup_homes.sh
+
+chmod +x backup_homes.sh
+
+
+echo -e '#!/bin/bash\n# Directorio donde se guardarán los backups\nBACKUP_DIR="/root/miserver/backups"\n# Credenciales de MySQL\nMYSQL_USER="tu_usuario"\nMYSQL_PASSWORD="tu_contraseña"\n\n# Crear el directorio de backups si no existe\nmkdir -p ${BACKUP_DIR}\n\n# Obtener la lista de todas las bases de datos\n\ndatabases=$(mysql -e "SHOW DATABASES;" | tr -d "| " | grep -v Database)\n# Realizar un backup de cada base de datos\nfor db in $databases; do\n  if [[ "$db" != "information_schema" && "$db" != "performance_schema" && "$db" != "mysql" && "$db" != "sys" ]]; then\n    echo "Respaldando la base de datos: $db"\n    mysqldump --databases $db | gzip > ${BACKUP_DIR}/${db}-backup-$(date +%F).sql.gz\n  fi\ndone\n\n# Eliminar los backups que tengan más de 7 días\nfind ${BACKUP_DIR} -type f -name "*.sql.gz" -mtime +7 -exec rm {} \;' > backup_databases.sh
+
+chmod +x backup_databases.sh
+
+crontab -e
+0 0 * * * /root/backup_homes.sh >> /root/backup_databases.log 2>&1
+0 0 * * * /root/backup_databases.sh >> /root/backup_homes.log 2>&1
+
+
