@@ -21,7 +21,7 @@ class Info extends BaseController
 
     $str = shell_exec('df -h');
 
-   /* $str = 'Filesystem      Size  Used Avail Use% Mounted on
+    /* $str = 'Filesystem      Size  Used Avail Use% Mounted on
 tmpfs            97M  1.1M   96M   2% /run
 /dev/vda1        24G  6.4G   17G  28% /
 tmpfs           481M     0  481M   0% /dev/shm
@@ -32,9 +32,28 @@ tmpfs            97M   12K   97M   1% /run/user/0
 tmpfs            97M   12K   97M   1% /run/user/1000';*/
 
     $datos['datos'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
+
+
+
+    $str = shell_exec('ls -all');
+//     $str = 'total 3353652
+// drwxr-xr-x  2 root root       4096 Jul  7 16:45 .
+// drwxr-xr-x 23 root root       4096 Jul  7 16:16 ..
+// -rw-r--r--  1 root root 1712839317 Jul  7 16:41 backups-backup-2024-07-07.tar.gz
+// -rw-r--r--  1 root root       1569 Jul  7 16:45 miserver-backup-2024-07-07.sql.gz
+// -rw-r--r--  1 root root 1468481685 Jul  7 16:43 perulist-backup-2024-07-07.tar.gz
+// -rw-r--r--  1 root root    3385268 Jul  7 16:45 perulist_web-backup-2024-07-07.sql.gz
+// -rw-r--r--  1 root root    3862848 Jul  7 16:43 piruw-backup-2024-07-07.tar.gz
+// -rw-r--r--  1 root root  212554514 Jul  7 16:43 punored-backup-2024-07-07.tar.gz
+// -rw-r--r--  1 root root     474909 Jul  7 16:45 punored_web-backup-2024-07-07.sql.gz
+// -rw-r--r--  1 root root   32497660 Jul  7 16:43 regino-backup-2024-07-07.tar.gz
+// -rw-r--r--  1 root root       2489 Jul  7 16:45 regino_web-backup-2024-07-07.sql.gz
+// ';
+    $datos['backups'] = explode("\n", preg_replace('#[ ]+#', "\t", $str));
+
     //die(print_r($datos['datos']));
     $str = shell_exec('du -h --max-depth=1 /home');
-   /* $str = '472M    /home/punored
+    /* $str = '472M    /home/punored
 91M     /home/regino
 32K     /home/piruw
 2.8G    /home/perulist
@@ -69,5 +88,25 @@ tmpfs            97M   12K   97M   1% /run/user/1000';*/
     $this->showHeader();
     $this->ShowContent('index', $datos);
     $this->showFooter();
+  }
+
+  function download($archivo)
+  {
+    $archivo = '/backups/'.$archivo;
+    if (file_exists($archivo)) {
+      // Define las cabeceras para forzar la descarga
+      header('Content-Description: File Transfer');
+      header('Content-Type: application/octet-stream');
+      header('Content-Disposition: attachment; filename="' . basename($archivo) . '"');
+      header('Expires: 0');
+      header('Cache-Control: must-revalidate');
+      header('Pragma: public');
+      header('Content-Length: ' . filesize($archivo));
+      flush(); // Limpia el búfer del sistema
+      readfile($archivo); // Lee el archivo y lo envía al navegador
+      exit;
+    } else {
+      echo 'El archivo no existe.';
+    }
   }
 }
