@@ -27,7 +27,7 @@
     <?php
     //die(print_r($user));
     foreach ($homes as $row) :
-      if ($user->id != '1') if(!preg_match("#{$user->user}#",$row))continue;
+      if ($user->id != '1') if (!preg_match("#{$user->user}#", $row)) continue;
       if (empty($row)) continue;
       $row = explode("\t", $row);
 
@@ -40,7 +40,7 @@
   <div class="row">
     <?php
     foreach ($info as $row) :
-      if ($user->id != '1') if(!preg_match("#{$user->user}#",$row))continue;
+      if ($user->id != '1') if (!preg_match("#{$user->user}#", $row)) continue;
       $row = trim($row);
       if (empty($row)) continue;
       $row = explode("\t", $row);
@@ -49,18 +49,34 @@
       <div class="col-md-8"><?php echo $row[1] ?></div>
     <?php endforeach; ?>
   </div>
-  <h1>Backups</h1>
+  <h1>Backups Home</h1>
   <div class="row">
     <?php
     //die(print_r($user));
     foreach ($backups as $row) :
-      if ($user->id != '1') if(!preg_match("#{$user->user}#",$row))continue;
+      if ($user->id != '1') if (!preg_match("#{$user->user}#", $row)) continue;
+      if (preg_match("#sql.gz#", $row)) continue;
       $row = explode("\t", $row);
       if (!isset($row[8])) continue;
-$row[8] = trim($row[8]);
+      $row[8] = trim($row[8]);
     ?>
-      <div class="col-md-4"><a href="<?php echo base_url('backups/'.$row[8]); ?>"><?php echo $row[8] ?></a></div>
-      <div class="col-md-8"><?php echo number_format($row[4]/1024/1024,2) ?></div>
+      <div class="col-md-4"><a href="<?php echo base_url('backups/' . $row[8]); ?>"><?php echo $row[8] ?></a></div>
+      <div class="col-md-8"><?php echo number_format($row[4] / 1024 / 1024, 2) ?></div>
+    <?php endforeach; ?>
+  </div>
+  <h1>Backups MySQL</h1>
+  <div class="row">
+    <?php
+    //die(print_r($user));
+    foreach ($backups as $row) :
+      if ($user->id != '1') if (!preg_match("#{$user->user}#", $row)) continue;
+      if (!preg_match("#sql.gz#", $row)) continue;
+      $row = explode("\t", $row);
+      if (!isset($row[8])) continue;
+      $row[8] = trim($row[8]);
+    ?>
+      <div class="col-md-4"><a href="<?php echo base_url('backups/' . $row[8]); ?>"><?php echo $row[8] ?></a></div>
+      <div class="col-md-8"><?php echo number_format($row[4] / 1024 / 1024, 2) ?></div>
     <?php endforeach; ?>
   </div>
 </div>
