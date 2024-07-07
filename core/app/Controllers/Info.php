@@ -35,7 +35,7 @@ tmpfs            97M   12K   97M   1% /run/user/1000';*/
 
 
 
-    $str = shell_exec('ls -all');
+    $str = shell_exec('ls -all /backups');
 //     $str = 'total 3353652
 // drwxr-xr-x  2 root root       4096 Jul  7 16:45 .
 // drwxr-xr-x 23 root root       4096 Jul  7 16:16 ..
