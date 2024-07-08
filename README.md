@@ -7,14 +7,14 @@ add sudomain wildcard
 CNAME  *.punored.com IP
 
 # install server in ubuntu
-apt update
-apt install apache2
-apt install mysql-server
-apt install php libapache2-mod-php php-mysql
-apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
+sudo apt update
+sudo apt install apache2
+sudo apt install mysql-server
+sudo apt install php libapache2-mod-php php-mysql
+sudo apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
 sudo apt install vsftpd
 
-echo -e 'pasv_enable=YES\npasv_min_port=10000\npasv_max_port=10100\nchroot_local_user=YES\nallow_writeable_chroot=YES\nforce_dot_files=YES' >> /etc/vsftpd.conf
+sudo echo -e 'pasv_enable=YES\npasv_min_port=10000\npasv_max_port=10100\nchroot_local_user=YES\nallow_writeable_chroot=YES\nforce_dot_files=YES' >> /etc/vsftpd.conf
 sudo systemctl restart vsftpd
 sudo systemctl enable vsftpd
 sudo systemctl status vsftpd
@@ -39,7 +39,7 @@ git clone https://github.com/mcedwin/miserver.git
 cd miserver/core
 composer install
 
-
+sudo systemctl daemon-reload
 sudo systemctl enable php_server.service
 sudo systemctl start php_server.service
 
@@ -63,9 +63,10 @@ sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
 # PHP display_errors = on
 sudo nano /etc/php/8.3/apache2/php.ini
 
-# PasswordAuthentication yes, for ppk login
+# PasswordAuthentication yes, for ppk login 
 sudo nano /etc/ssh/sshd_config
 
+# lo mismo pero en sshd_config.d
 
 
 
