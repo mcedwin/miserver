@@ -22,6 +22,8 @@ function shell_init($user, $password, $domain, $token)
   shell_exec("chmod o+x /home/{$user}");
   shell_exec("chown {$user} /home/{$user}/public_html");
   shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
+  shell_exec("chown -R {$user}:apache /home/{$user}/public_html");
+  shell_exec("sudo chmod -R g+w /home/{$user}/public_html/");
 
   shell_exec("echo '
 ServerName 127.0.0.1
@@ -83,12 +85,14 @@ function shell_user_new($user, $password, $domain, $token)
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
   shell_exec("chmod o+x /home/{$user}");
- // shell_exec("su - {$user}");
+  // shell_exec("su - {$user}");
   shell_exec("sudo -u {$user} mkdir /home/{$user}/public_html");
   shell_exec("sudo -u {$user} chmod 755 /home/{$user}/public_html");
   shell_exec("echo 'Hola m {$user}' | sudo -u {$user} tee /home/{$user}/public_html/index.html >/dev/null");
   // shell_exec("sudo -u {$user} echo 'Hola m {$user}' > /home/{$user}/public_html/index.html");
   shell_exec("sudo -u {$user} umask 022");
+  shell_exec("chown -R {$user}:apache /home/{$user}/public_html");
+  shell_exec("sudo chmod -R g+w /home/{$user}/public_html/");
   //shell_exec("exit");
   //shell_exec("mkdir /home/{$user}/public_html");
   //
@@ -239,7 +243,7 @@ Require all granted
 ######FIN {$name}######
 ' >> /etc/apache2/apache2.conf");
 
-shell_exec("echo '
+  shell_exec("echo '
 ######INI {$name}######
 <VirtualHost *:80>
 DocumentRoot /home/{$user}/{$folder}
