@@ -85,7 +85,8 @@ function shell_user_new($user, $password, $domain, $token)
  // shell_exec("su - {$user}");
   shell_exec("sudo -u {$user} mkdir /home/{$user}/public_html");
   shell_exec("sudo -u {$user} chmod 755 /home/{$user}/public_html");
-  shell_exec("sudo -u {$user} echo 'Hola m {$user}' > /home/{$user}/public_html/index.html");
+  shell_exec("echo 'Hola m {$user}' | sudo -u {$user} tee /home/{$user}/public_html/index.html >/dev/null");
+  // shell_exec("sudo -u {$user} echo 'Hola m {$user}' > /home/{$user}/public_html/index.html");
   shell_exec("sudo -u {$user} umask 022");
   //shell_exec("exit");
   //shell_exec("mkdir /home/{$user}/public_html");
@@ -215,12 +216,13 @@ function shell_user_delete($user, $domain, $token)
 function shell_domain_new($user, $name, $domain, $folder, $token)
 {
   shell_exec("mkdir /home/{$user}/{$folder}");
+  shell_exec("chmod o+x /home/{$user}");
   // shell_exec("su - {$user}");
   shell_exec("sudo -u {$user} mkdir /home/{$user}/{$folder}");
   shell_exec("sudo -u {$user} chmod 755 /home/{$user}/{$folder}");
   shell_exec("sudo -u {$user} umask 022");
   // shell_exec("exit");
-  //shell_exec("chmod o+x /home/{$user}");
+  //
   //shell_exec("chown {$user} /home/{$user}/{$folder}");
   shell_exec("echo '
 ######INI {$name}######
