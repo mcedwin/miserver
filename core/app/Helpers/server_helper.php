@@ -226,6 +226,8 @@ function shell_domain_new($user, $name, $domain, $folder, $token)
   shell_exec("sudo -u {$user} mkdir /home/{$user}/{$folder}");
   shell_exec("sudo -u {$user} chmod 755 /home/{$user}/{$folder}");
   shell_exec("sudo -u {$user} umask 022");
+  shell_exec("chown -R {$user}:apache /home/{$user}/{$folder}");
+  shell_exec("sudo chmod -R g+w /home/{$user}/{$folder}/");
   // shell_exec("exit");
   //
   //shell_exec("chown {$user} /home/{$user}/{$folder}");
