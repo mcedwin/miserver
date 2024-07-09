@@ -85,11 +85,12 @@ function shell_user_new($user, $password, $domain, $token)
   shell_exec("su - {$user}");
   shell_exec("mkdir ~/public_html");
   shell_exec("chmod 755 ~/public_html");
+  shell_exec("echo 'Hola {$user}' > ~/public_html/index.html");
   shell_exec("umask 022");
   shell_exec("exit");
-  shell_exec("mkdir /home/{$user}/public_html");
-  shell_exec("chmod o+x /home/{$user}");
-  shell_exec("chown {$user} /home/{$user}/public_html");
+  //shell_exec("mkdir /home/{$user}/public_html");
+  //shell_exec("chmod o+x /home/{$user}");
+  //shell_exec("chown {$user} /home/{$user}/public_html");
   shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
 
   shell_exec("echo '
