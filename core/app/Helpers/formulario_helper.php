@@ -7,7 +7,7 @@ function select_options($datos, $opts, $vacio = FALSE)
     foreach ($datos as $value) {
         $options[$value->$id] = $value->$nombre;
     }
-    return $options;
+    return $options; 
 }
 
 function select_enum($datos, $vacio = FALSE)
