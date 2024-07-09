@@ -206,7 +206,7 @@ class Users extends BaseController
   //   ]);
 
   //   // Reemplaza 'YOUR_HOSTED_ZONE_ID' con el ID de la zona alojada que deseas eliminar
-  //   $hostedZoneId = 'Z08801582SOT12XTP3KPD';
+  //   $hostedZoneId = '';
 
   //   $ipAddress = file_get_contents('https://api.ipify.org');
 
