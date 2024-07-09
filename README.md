@@ -148,8 +148,10 @@ sudo systemctl enable php_server.service
 sudo systemctl start php_server.service
 
 
-sudo amazon-linux-extras install epel -y
+
 sudo yum install certbot python2-certbot-apache -y
+
+
 
 sudo systemctl restart httpd
 sudo systemctl restart sshd
@@ -167,5 +169,12 @@ sudo nano /etc/ssh/sshd_config
 
 sudo certbot --apache
 
+
+####### dar permiso de escritura al grupo para apache
+chown -R palfeis:apache /home/palfeis/public_html
+sudo chmod -R g+w /home/palfeis/public_html/
+
+
+t3a.micro
 
 
