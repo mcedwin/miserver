@@ -94,8 +94,78 @@ echo -e '#!/bin/bash\n# Directorio donde se guardarán los backups\nBACKUP_DIR="
 
 chmod +x backup_databases.sh
 
+sudo yum install cronie
+
 crontab -e
 0 0 * * * /root/backup_homes.sh >> /root/backup_databases.log 2>&1
 0 0 * * * /root/backup_databases.sh >> /root/backup_homes.log 2>&1
+
+
+
+
+# EN ami linux
+
+sudo yum update -y
+sudo dnf install -y httpd wget php-fpm php-mysqli php-json php php-devel php-intl
+sudo dnf install mariadb105-server
+
+sudo systemctl enable mariadb
+sudo systemctl restart mariadb
+
+
+sudo yum install vsftpd -y
+echo -e 'pasv_enable=YES\npasv_min_port=10000\npasv_max_port=10100\nchroot_local_user=YES\nallow_writeable_chroot=YES\nforce_dot_files=YES' | sudo tee -a /etc/vsftpd/vsftpd.conf
+
+sudo systemctl enable httpd
+sudo systemctl start httpd
+sudo systemctl restart vsftpd
+sudo systemctl enable vsftpd
+sudo systemctl status vsftpd
+
+
+sudo yum install curl unzip -y
+sudo yum install php php-curl -y
+curl -sS https://getcomposer.org/installer -o composer-setup.php
+php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+composer self-update
+
+cd /root
+
+echo -e '#!/bin/bash\nphp -S 0.0.0.0:8004 -t /root/miserver' > start_php_server.sh
+chmod +x start_php_server.sh
+
+
+echo -e '[Unit]\nDescription=PHP Development Server\n[Service]\nExecStart=/root/start_php_server.sh\nRestart=always\nUser=root\n[Install]\nWantedBy=multi-user.target' | sudo tee /etc/systemd/system/php_server.service
+
+sudo yum install git -y
+
+git clone https://github.com/mcedwin/miserver.git
+cd miserver/core
+composer install
+
+sudo systemctl daemon-reload
+sudo systemctl enable php_server.service
+sudo systemctl start php_server.service
+
+
+sudo amazon-linux-extras install epel -y
+sudo yum install certbot python2-certbot-apache -y
+
+sudo systemctl restart httpd
+sudo systemctl restart sshd
+sudo systemctl restart mariadb
+
+
+sudo nano /etc/my.cnf
+
+
+sudo nano /etc/php.ini
+
+
+sudo nano /etc/ssh/sshd_config
+
+
+sudo certbot --apache
+
 
 
