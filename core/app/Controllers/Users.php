@@ -200,8 +200,8 @@ class Users extends BaseController
   //     'version'     => 'latest',
   //     'region'      => 'us-east-1',
   //     'credentials' => [
-  //       'key'    => 'AKIAST2HP3KYMOMFWF4H',
-  //       'secret' => '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',
+  //      
+  //   
   //     ],
   //   ]);
 
@@ -239,8 +239,7 @@ class Users extends BaseController
   //     'version'     => 'latest',
   //     'region'      => 'us-east-1',
   //     'credentials' => [
-  //       'key'    => 'AKIAST2HP3KYMOMFWF4H',
-  //       'secret' => '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',
+  //
   //     ],
   //   ]);
 
