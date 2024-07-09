@@ -243,7 +243,7 @@ class Users extends BaseController
   //     ],
   //   ]);
 
-  //   $hostedZoneId = 'Z08801582SOT12XTP3KPD';
+  //   $hostedZoneId = '';
   //   $ipAddress = file_get_contents('https://api.ipify.org');
 
   //   $client->changeResourceRecordSets([
