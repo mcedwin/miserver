@@ -82,6 +82,7 @@ function shell_user_new($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
+  shell_exec("chmod o+x /home/{$user}");
  // shell_exec("su - {$user}");
   shell_exec("sudo -u {$user} mkdir /home/{$user}/public_html");
   shell_exec("sudo -u {$user} chmod 755 /home/{$user}/public_html");
@@ -90,7 +91,7 @@ function shell_user_new($user, $password, $domain, $token)
   shell_exec("sudo -u {$user} umask 022");
   //shell_exec("exit");
   //shell_exec("mkdir /home/{$user}/public_html");
-  //shell_exec("chmod o+x /home/{$user}");
+  //
   //shell_exec("chown {$user} /home/{$user}/public_html");
   //shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
 
