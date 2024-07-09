@@ -38,6 +38,21 @@ Require all granted
 </VirtualHost>
 ######FIN {$user}######
 ' >> /etc/apache2/apache2.conf");
+  shell_exec("echo '
+ServerName 127.0.0.1
+
+######INI {$user}######
+<VirtualHost *:80>
+DocumentRoot /home/{$user}/public_html
+ServerName {$domain}
+<Directory /home/{$user}/public_html/>
+Options Indexes FollowSymLinks MultiViews
+AllowOverride All
+Require all granted
+</Directory>
+</VirtualHost>
+######FIN {$user}######
+' >>  /etc/httpd/conf/httpd.conf");
 
   shell_exec("mysql -u root -e \"
     CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
@@ -85,6 +100,19 @@ Require all granted
 </VirtualHost>
 ######FIN {$user}######
 ' >> /etc/apache2/apache2.conf");
+  shell_exec("echo '
+######INI {$user}######
+<VirtualHost *:80>
+DocumentRoot /home/{$user}/public_html
+ServerName {$domain}
+<Directory /home/{$user}/public_html/>
+Options Indexes FollowSymLinks MultiViews
+AllowOverride All
+Require all granted
+</Directory>
+</VirtualHost>
+######FIN {$user}######
+' >> /etc/httpd/conf/httpd.conf");
 
 
   $ipAddress = file_get_contents('https://api.ipify.org');
@@ -197,6 +225,20 @@ Require all granted
 ######FIN {$name}######
 ' >> /etc/apache2/apache2.conf");
 
+shell_exec("echo '
+######INI {$name}######
+<VirtualHost *:80>
+DocumentRoot /home/{$user}/{$folder}
+ServerName {$domain}
+<Directory /home/{$user}/{$folder}/>
+Options Indexes FollowSymLinks MultiViews
+AllowOverride All
+Require all granted
+</Directory>
+</VirtualHost>
+######FIN {$name}######
+' >> /etc/httpd/conf/httpd.conf");
+
   $ipAddress = file_get_contents('https://api.ipify.org');
   curl_adddomain($token, $domain, $ipAddress);
 }
@@ -207,6 +249,11 @@ function shell_domain_delete($name, $domain, $token)
   $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
   curl_removedomain($domain, $token);
   $cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
+
+  $cont = @file_get_contents("/etc/httpd/conf/httpd.conf");
+  $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
+  curl_removedomain($domain, $token);
+  $cont = @file_put_contents("/etc/httpd/conf/httpd.conf", $cont);
 }
 
 function shell_db_new($user, $dbname)

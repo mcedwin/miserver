@@ -11,6 +11,7 @@
     },
     "require": {
         "php": "^8.1",
+        "aws/aws-sdk-php": "^3.315",
         "codeigniter4/framework": "^4.0"
     },
     "require-dev": {
