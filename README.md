@@ -171,8 +171,8 @@ sudo certbot --apache
 
 
 ####### dar permiso de escritura al grupo para apache
-chown -R palfeis:apache /home/palfeis/public_html
-sudo chmod -R g+w /home/palfeis/public_html/
+chown -R piruw:apache /home/piruw/public_html
+sudo chmod -R g+w /home/piruw/public_html/
 
 
 t3a.micro
