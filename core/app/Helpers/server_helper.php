@@ -32,7 +32,8 @@ ServerName 127.0.0.1
 
   newwebfolder($user,$user,'public_html',$domain);
 
-  
+  $ipAddress = file_get_contents('https://api.ipify.org');
+  curl_adddomain($token, $domain, $ipAddress);
 //   shell_exec("echo '
 // ServerName 127.0.0.1
 
