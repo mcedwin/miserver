@@ -74,12 +74,12 @@ ServerName 127.0.0.1
 
 function newwebfolder($user,$name,$folder,$domain)
 {
-  shell_exec("sudo -u {$user} mkdir /home/{$user}/{$folder}");
-  shell_exec("sudo -u {$user} chmod 755 /home/{$user}/{$folder}");
-  shell_exec("echo 'Hola {$user}' | sudo -u {$user} tee /home/{$user}/{$folder}/index.html >/dev/null");
+  shell_exec("mkdir /home/{$user}/{$folder}");
+  shell_exec("chmod 755 /home/{$user}/{$folder}");
+  shell_exec("echo 'Hola {$user}' > /home/{$user}/{$folder}/index.html");
   shell_exec("sudo -u {$user} umask 022");
-  //shell_exec("chown -R {$user}:www-data /home/{$user}/{$folder}");
-  shell_exec("sudo chmod -R g+w /home/{$user}/{$folder}/");
+  shell_exec("chown -R {$user}:{$user} /home/{$user}/{$folder}");
+  //shell_exec("sudo chmod -R g+w /home/{$user}/{$folder}/");
   //shell_exec("sudo chmod g+s /home/{$user}/{$folder}/");
 
   shell_exec("echo '
