@@ -190,7 +190,8 @@ class Users extends BaseController
     $this->dieMsg();
   }
 
-  public function crearmasa(){
+  public function crearmasa()
+  {
     $str = "230380	A - 1 - APAZA ANAHUI WALDIR ALEXANDER	u230380	230380AR	u230380.piruw.com
 221249	A - 2 - APAZA QUISPE ROYER	u221249	221249AR	u221249.piruw.com
 231523	A - 3 - APAZA RAMIREZ JIMMY EDSON	u231523	231523AN	u231523.piruw.com
@@ -241,8 +242,13 @@ class Users extends BaseController
 231519	B - 30 - VILCA CARI HECTOR YERAN	u231519	231519VN	u231519.piruw.com
 228596	B - 31 - VILCA CARPIO CARLOS DANIEL	u228596	228596VL	u228596.piruw.com
 230403	B - 32 - YUCRA MIRANDA ROY OMAR	u230403	230403YR	u230403.piruw.com";
-$rows = explode("\r\n",$str);
-print_r($rows);
+    $rows = explode("\r\n", $str);
+    print_r($rows);
+    foreach ($rows as $row) {
+      $row = explode("\t",$row);
+      //print_r($row);
+      shell_user_new($row[2],$row[3], $row[4], $this->user->token);
+      echo "creando ".$row[2]."<br>\n";
+    }
   }
-
 }
