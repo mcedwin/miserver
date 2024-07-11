@@ -242,10 +242,10 @@ class Users extends BaseController
 231519	B - 30 - VILCA CARI HECTOR YERAN	u231519	231519VN	u231519.piruw.com
 228596	B - 31 - VILCA CARPIO CARLOS DANIEL	u228596	228596VL	u228596.piruw.com
 230403	B - 32 - YUCRA MIRANDA ROY OMAR	u230403	230403YR	u230403.piruw.com";
-    $rows = explode("\r\n", $str);
+    $rows = explode("\n", $str);
     print_r($rows);
     foreach ($rows as $row) {
-      $row = explode("\t",$row);
+      $row = explode("\t",trim($row));
       //print_r($row);
       shell_user_new($row[2],$row[3], $row[4], $this->user->token);
       echo "creando ".$row[2]."<br>\n";
