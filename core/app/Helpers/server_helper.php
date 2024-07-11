@@ -20,41 +20,34 @@ function shell_init($user, $password, $domain, $token)
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
   shell_exec("mkdir /home/{$user}/public_html");
   shell_exec("chmod o+x /home/{$user}");
-  shell_exec("chown {$user} /home/{$user}/public_html");
-  shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
-  shell_exec("chown -R {$user}:apache /home/{$user}/public_html");
-  shell_exec("sudo chmod -R g+w /home/{$user}/public_html/");
+  
+  // shell_exec("chown {$user} /home/{$user}/public_html");
+  // shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
+  // shell_exec("chown -R {$user}:www-data /home/{$user}/public_html");
+  // shell_exec("sudo chmod -R g+w /home/{$user}/public_html/");
 
-  shell_exec("echo '
+shell_exec("echo '
 ServerName 127.0.0.1
-
-######INI {$user}######
-<VirtualHost *:80>
-DocumentRoot /home/{$user}/public_html
-ServerName {$domain}
-<Directory /home/{$user}/public_html/>
-Options Indexes FollowSymLinks MultiViews
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-######FIN {$user}######
 ' >> /etc/apache2/apache2.conf");
-  shell_exec("echo '
-ServerName 127.0.0.1
 
-######INI {$user}######
-<VirtualHost *:80>
-DocumentRoot /home/{$user}/public_html
-ServerName {$domain}
-<Directory /home/{$user}/public_html/>
-Options Indexes FollowSymLinks MultiViews
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-######FIN {$user}######
-' >>  /etc/httpd/conf/httpd.conf");
+  newwebfolder($user,$user,'public_html',$domain);
+
+  
+//   shell_exec("echo '
+// ServerName 127.0.0.1
+
+// ######INI {$user}######
+// <VirtualHost *:80>
+// DocumentRoot /home/{$user}/public_html
+// ServerName {$domain}
+// <Directory /home/{$user}/public_html/>
+// Options Indexes FollowSymLinks MultiViews
+// AllowOverride All
+// Require all granted
+// </Directory>
+// </VirtualHost>
+// ######FIN {$user}######
+// ' >>  /etc/httpd/conf/httpd.conf");
 
   shell_exec("mysql -u root -e \"
     CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
@@ -79,52 +72,57 @@ Require all granted
   shell_exec("usermod -aG sudo {$user}");
 }
 
+function newwebfolder($user,$name,$folder,$domain)
+{
+  shell_exec("sudo -u {$user} mkdir /home/{$user}/{$folder}");
+  shell_exec("sudo -u {$user} chmod 755 /home/{$user}/{$folder}");
+  shell_exec("echo 'Hola {$user}' | sudo -u {$user} tee /home/{$user}/{$folder}/index.html >/dev/null");
+  shell_exec("sudo -u {$user} umask 022");
+  //shell_exec("chown -R {$user}:www-data /home/{$user}/{$folder}");
+  shell_exec("sudo chmod -R g+w /home/{$user}/{$folder}/");
+  //shell_exec("sudo chmod g+s /home/{$user}/{$folder}/");
+
+  shell_exec("echo '
+######INI {$name}######
+<VirtualHost *:80>
+DocumentRoot /home/{$user}/{$folder}
+ServerName {$domain}
+<Directory /home/{$user}/{$folder}/>
+Options Indexes FollowSymLinks MultiViews
+AllowOverride All
+Require all granted
+</Directory>
+SuexecUserGroup {$user} {$user}
+</VirtualHost>
+######FIN {$name}######
+' >> /etc/apache2/apache2.conf");
+
+}
+
 
 function shell_user_new($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
   shell_exec("chmod o+x /home/{$user}");
-  // shell_exec("su - {$user}");
-  shell_exec("sudo -u {$user} mkdir /home/{$user}/public_html");
-  shell_exec("sudo -u {$user} chmod 755 /home/{$user}/public_html");
-  shell_exec("echo 'Hola m {$user}' | sudo -u {$user} tee /home/{$user}/public_html/index.html >/dev/null");
-  // shell_exec("sudo -u {$user} echo 'Hola m {$user}' > /home/{$user}/public_html/index.html");
-  shell_exec("sudo -u {$user} umask 022");
-  shell_exec("chown -R {$user}:apache /home/{$user}/public_html");
-  shell_exec("sudo chmod -R g+w /home/{$user}/public_html/");
-  //shell_exec("exit");
-  //shell_exec("mkdir /home/{$user}/public_html");
-  //
-  //shell_exec("chown {$user} /home/{$user}/public_html");
-  //shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
+  shell_exec("usermod -a -G www-data {$user}");
+  newwebfolder($user,$user,'public_html',$domain);
 
-  shell_exec("echo '
-######INI {$user}######
-<VirtualHost *:80>
-DocumentRoot /home/{$user}/public_html
-ServerName {$domain}
-<Directory /home/{$user}/public_html/>
-Options Indexes FollowSymLinks MultiViews
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-######FIN {$user}######
-' >> /etc/apache2/apache2.conf");
-  shell_exec("echo '
-######INI {$user}######
-<VirtualHost *:80>
-DocumentRoot /home/{$user}/public_html
-ServerName {$domain}
-<Directory /home/{$user}/public_html/>
-Options Indexes FollowSymLinks MultiViews
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-######FIN {$user}######
-' >> /etc/httpd/conf/httpd.conf");
+
+  
+  //   shell_exec("echo '
+  // ######INI {$user}######
+  // <VirtualHost *:80>
+  // DocumentRoot /home/{$user}/public_html
+  // ServerName {$domain}
+  // <Directory /home/{$user}/public_html/>
+  // Options Indexes FollowSymLinks MultiViews
+  // AllowOverride All
+  // Require all granted
+  // </Directory>
+  // </VirtualHost>
+  // ######FIN {$user}######
+  // ' >> /etc/httpd/conf/httpd.conf");
 
 
   $ipAddress = file_get_contents('https://api.ipify.org');
@@ -222,42 +220,37 @@ function shell_domain_new($user, $name, $domain, $folder, $token)
 {
   shell_exec("mkdir /home/{$user}/{$folder}");
   shell_exec("chmod o+x /home/{$user}");
-  // shell_exec("su - {$user}");
-  shell_exec("sudo -u {$user} mkdir /home/{$user}/{$folder}");
-  shell_exec("sudo -u {$user} chmod 755 /home/{$user}/{$folder}");
-  shell_exec("sudo -u {$user} umask 022");
-  shell_exec("chown -R {$user}:apache /home/{$user}/{$folder}");
-  shell_exec("sudo chmod -R g+w /home/{$user}/{$folder}/");
-  // shell_exec("exit");
-  //
-  //shell_exec("chown {$user} /home/{$user}/{$folder}");
-  shell_exec("echo '
-######INI {$name}######
-<VirtualHost *:80>
-DocumentRoot /home/{$user}/{$folder}
-ServerName {$domain}
-<Directory /home/{$user}/{$folder}/>
-Options Indexes FollowSymLinks MultiViews
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-######FIN {$name}######
-' >> /etc/apache2/apache2.conf");
+  
+  newwebfolder($user,$name,$folder,$domain);
 
-  shell_exec("echo '
-######INI {$name}######
-<VirtualHost *:80>
-DocumentRoot /home/{$user}/{$folder}
-ServerName {$domain}
-<Directory /home/{$user}/{$folder}/>
-Options Indexes FollowSymLinks MultiViews
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-######FIN {$name}######
-' >> /etc/httpd/conf/httpd.conf");
+
+//   shell_exec("echo '
+// ######INI {$name}######
+// <VirtualHost *:80>
+// DocumentRoot /home/{$user}/{$folder}
+// ServerName {$domain}
+// <Directory /home/{$user}/{$folder}/>
+// Options Indexes FollowSymLinks MultiViews
+// AllowOverride All
+// Require all granted
+// </Directory>
+// </VirtualHost>
+// ######FIN {$name}######
+// ' >> /etc/apache2/apache2.conf");
+
+  //   shell_exec("echo '
+  // ######INI {$name}######
+  // <VirtualHost *:80>
+  // DocumentRoot /home/{$user}/{$folder}
+  // ServerName {$domain}
+  // <Directory /home/{$user}/{$folder}/>
+  // Options Indexes FollowSymLinks MultiViews
+  // AllowOverride All
+  // Require all granted
+  // </Directory>
+  // </VirtualHost>
+  // ######FIN {$name}######
+  // ' >> /etc/httpd/conf/httpd.conf");
 
   $ipAddress = file_get_contents('https://api.ipify.org');
   curl_adddomain($token, $domain, $ipAddress);
@@ -270,10 +263,10 @@ function shell_domain_delete($name, $domain, $token)
   curl_removedomain($domain, $token);
   $cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
 
-  $cont = @file_get_contents("/etc/httpd/conf/httpd.conf");
-  $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
-  curl_removedomain($domain, $token);
-  $cont = @file_put_contents("/etc/httpd/conf/httpd.conf", $cont);
+  // $cont = @file_get_contents("/etc/httpd/conf/httpd.conf");
+  // $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
+  // curl_removedomain($domain, $token);
+  // $cont = @file_put_contents("/etc/httpd/conf/httpd.conf", $cont);
 }
 
 function shell_db_new($user, $dbname)
