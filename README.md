@@ -14,7 +14,9 @@ sudo apt install php libapache2-mod-php php-mysql
 sudo apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
 sudo apt install vsftpd
 
-sudo apt-get install acl
+-----sudo apt-get install acl
+sudo a2enmod suexec
+sudo systemctl restart apache2
 
 sudo echo -e 'pasv_enable=YES\npasv_min_port=10000\npasv_max_port=10100\nchroot_local_user=YES\nallow_writeable_chroot=YES\nforce_dot_files=YES' >> /etc/vsftpd.conf
 sudo systemctl restart vsftpd
