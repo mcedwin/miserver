@@ -12,6 +12,15 @@ sudo apt install apache2
 sudo apt install mysql-server
 sudo apt install php libapache2-mod-php php-mysql
 sudo apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
+
+sudo a2dismod mpm_prefork
+sudo a2dismod php8.3
+sudo apt-get install libapache2-mpm-itk
+sudo a2enmod mpm_itk
+sudo a2enmod php8.3
+sudo systemctl restart apache2
+
+
 sudo apt install vsftpd
 
 -----sudo apt-get install acl
@@ -180,5 +189,23 @@ sudo chmod -R g+w /home/piruw/public_html/
 
 
 t3a.micro
+
+
+
+#################
+
+sudo a2dismod mpm_prefork
+sudo a2dismod php8.3
+
+sudo apt-get install libapache2-mpm-itk
+sudo a2enmod mpm_itk
+
+sudo a2enmod php8.3
+
+sudo systemctl restart apache2
+
+
+
+
 
 
