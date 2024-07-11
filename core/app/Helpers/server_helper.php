@@ -87,12 +87,12 @@ function newwebfolder($user,$name,$folder,$domain)
 <VirtualHost *:80>
 DocumentRoot /home/{$user}/{$folder}
 ServerName {$domain}
+AssignUserID {$user} {$user}
 <Directory /home/{$user}/{$folder}/>
 Options Indexes FollowSymLinks MultiViews
 AllowOverride All
 Require all granted
 </Directory>
-SuexecUserGroup {$user} {$user}
 </VirtualHost>
 ######FIN {$name}######
 ' >> /etc/apache2/apache2.conf");
