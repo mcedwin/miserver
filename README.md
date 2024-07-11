@@ -182,3 +182,21 @@ sudo chmod -R g+w /home/piruw/public_html/
 t3a.micro
 
 
+
+#################
+
+sudo a2dismod mpm_prefork
+sudo a2dismod php8.3
+
+sudo apt-get install libapache2-mpm-itk
+sudo a2enmod mpm_itk
+
+sudo a2enmod php8.3
+
+sudo systemctl restart apache2
+
+
+
+
+
+
