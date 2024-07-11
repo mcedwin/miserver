@@ -18,8 +18,8 @@ function shell_init($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
-  shell_exec("mkdir /home/{$user}/public_html");
-  shell_exec("chmod o+x /home/{$user}");
+  //shell_exec("mkdir /home/{$user}/public_html");
+  
   
   // shell_exec("chown {$user} /home/{$user}/public_html");
   // shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
@@ -31,6 +31,7 @@ ServerName 127.0.0.1
 ' >> /etc/apache2/apache2.conf");
 
   newwebfolder($user,$user,'public_html',$domain);
+
 
   $ipAddress = file_get_contents('https://api.ipify.org');
   curl_adddomain($token, $domain, $ipAddress);
@@ -80,6 +81,7 @@ function newwebfolder($user,$name,$folder,$domain)
   shell_exec("echo 'Hola {$user}' > /home/{$user}/{$folder}/index.html");
   shell_exec("sudo -u {$user} umask 022");
   shell_exec("chown -R {$user}:{$user} /home/{$user}/{$folder}");
+  shell_exec("chmod o+x /home/{$user}");
   //shell_exec("sudo chmod -R g+w /home/{$user}/{$folder}/");
   //shell_exec("sudo chmod g+s /home/{$user}/{$folder}/");
 
@@ -105,10 +107,10 @@ function shell_user_new($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
-  shell_exec("chmod o+x /home/{$user}");
+ 
  // shell_exec("usermod -a -G www-data {$user}");
   newwebfolder($user,$user,'public_html',$domain);
-
+ shell_exec("chmod o+x /home/{$user}");
 
   
   //   shell_exec("echo '
@@ -220,8 +222,8 @@ function shell_user_delete($user, $domain, $token)
 
 function shell_domain_new($user, $name, $domain, $folder, $token)
 {
-  shell_exec("mkdir /home/{$user}/{$folder}");
-  shell_exec("chmod o+x /home/{$user}");
+  //shell_exec("mkdir /home/{$user}/{$folder}");
+  //shell_exec("chmod o+x /home/{$user}");
   
   newwebfolder($user,$name,$folder,$domain);
 
