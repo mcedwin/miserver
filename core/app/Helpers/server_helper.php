@@ -137,7 +137,7 @@ function shell_user_new($user, $password, $domain, $token)
 
 function curl_adddomain($apiToken, $domainName, $ipAddress)
 {
-
+  if(preg_match('#.+?\..+?\.#',$domainName))return false;
   // $apiToken = "TU_TOKEN_API";
   // $domainName = "ejemplo.com";  // Nombre del dominio que deseas agregar
   // $ipAddress = "192.168.1.1";  // Dirección IP asociada con el dominio
