@@ -106,7 +106,7 @@ function shell_user_new($user, $password, $domain, $token)
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
   shell_exec("chmod o+x /home/{$user}");
-  shell_exec("usermod -a -G www-data {$user}");
+ // shell_exec("usermod -a -G www-data {$user}");
   newwebfolder($user,$user,'public_html',$domain);
 
 
