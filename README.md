@@ -13,8 +13,9 @@ sudo apt install mysql-server
 sudo apt install php libapache2-mod-php php-mysql
 sudo apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
 
-sudo a2dismod mpm_prefork
 sudo a2dismod php8.3
+sudo a2dismod mpm_prefork
+
 sudo apt-get install libapache2-mpm-itk
 sudo a2enmod mpm_itk
 sudo a2enmod php8.3
@@ -24,8 +25,8 @@ sudo systemctl restart apache2
 sudo apt install vsftpd
 
 -----sudo apt-get install acl
-sudo a2enmod suexec
-sudo systemctl restart apache2
+----sudo a2enmod suexec
+----sudo systemctl restart apache2
 
 sudo echo -e 'pasv_enable=YES\npasv_min_port=10000\npasv_max_port=10100\nchroot_local_user=YES\nallow_writeable_chroot=YES\nforce_dot_files=YES' >> /etc/vsftpd.conf
 sudo systemctl restart vsftpd
@@ -204,7 +205,11 @@ sudo a2enmod php8.3
 
 sudo systemctl restart apache2
 
-
+*/16	*	*	*	*	wget -q --spider https://punored.com/getlinks	    
+*/17	*	*	*	*	wget -q --spider https://punored.com/getcontent	    
+0,30	*	*	*	*	wget -q --spider https://perulist.com/getlinks	    
+*/17	*	*	*	*	wget -q --spider https://perulist.com/getcontent	    
+0,30	*	*	*	*	wget -q --spider https://perulist.com/getshares
 
 
 
