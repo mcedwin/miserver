@@ -128,6 +128,7 @@ function shell_user_new($user, $password, $domain, $token)
 
   $ipAddress = file_get_contents('https://api.ipify.org');
   curl_adddomain($token, $domain, $ipAddress);
+  shell_reset_apache();
 
   shell_exec("mysql -u root -e \"
         CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
