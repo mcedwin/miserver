@@ -273,6 +273,8 @@ function shell_domain_delete($name, $domain, $token)
   shell_exec("sudo rm /etc/apache2/sites-available/{$domain}.conf");
   shell_exec("sudo rm /etc/apache2/sites-available/{$domain}-le-ssl.conf");
 
+  shell_exec("sudo certbot revoke --cert-name {$domain} --non-interactive --agree-tos");
+
   // $cont = @file_get_contents("/etc/httpd/conf/httpd.conf");
   // $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
   // curl_removedomain($domain, $token);
