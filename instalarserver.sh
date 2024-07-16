@@ -20,7 +20,7 @@ sudo apt-get install curl unzip -y
 sudo apt-get install php php-curl -y
 curl -sS https://getcomposer.org/installer -o composer-setup.php
 php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-composer self-update --quiet --yes
+composer self-update
 
 
 echo -e '#!/bin/bash\nphp -S 0.0.0.0:8004 -t /root/miserver' > /root/start_php_server.sh
@@ -31,7 +31,7 @@ echo -e '[Unit]\nDescription=PHP Development Server\n[Service]\nExecStart=/root/
 
 git clone https://github.com/mcedwin/miserver.git /root/miserver
 cd /root/miserver/core
-composer install
+composer install --no-interaction
 
 cd /root/
 
