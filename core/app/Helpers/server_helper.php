@@ -28,6 +28,14 @@ ServerName 127.0.0.1
 
   $ipAddress = file_get_contents('https://api.ipify.org');
   curl_adddomain($token, $domain, $ipAddress);
+
+  shell_reset_apache();
+
+  shell_exec("sudo certbot --apache -d {$domain}");
+
+
+
+
 //   shell_exec("echo '
 // ServerName 127.0.0.1
 
@@ -124,7 +132,10 @@ function shell_user_new($user, $password, $domain, $token)
 
   $ipAddress = file_get_contents('https://api.ipify.org');
   curl_adddomain($token, $domain, $ipAddress);
+  
   shell_reset_apache();
+
+  shell_exec("sudo certbot --apache -d {$domain}");
 
   shell_exec("mysql -u root -e \"
         CREATE USER '{$user}'@'%' IDENTIFIED BY '{$password}';
