@@ -92,7 +92,8 @@ Require all granted
 </VirtualHost>
 ######FIN {$name}######
 ' > /etc/apache2/sites-available/{$domain}.conf");
-shell_exec("sudo a2ensite /etc/apache2/sites-available/{$domain}.conf");
+// chdir('/etc/apache2/sites-available/');
+shell_exec("sudo a2ensite {$domain}.conf");
 }
 
 
