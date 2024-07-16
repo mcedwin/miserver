@@ -254,7 +254,7 @@ function shell_domain_delete($name, $domain, $token)
  // $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
   curl_removedomain($domain, $token);
   //$cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
-  shell_exec("userdel {$user}");
+  // shell_exec("userdel {$user}");
   shell_exec("sudo a2dissite {$domain}.conf");
   shell_exec("sudo rm {$domain}.conf");
   shell_exec("sudo rm /etc/apache2/sites-enabled/{$domain}.conf");
