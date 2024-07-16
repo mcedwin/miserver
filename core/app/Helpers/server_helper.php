@@ -18,13 +18,6 @@ function shell_init($user, $password, $domain, $token)
 {
   shell_exec("useradd -m -s /bin/bash {$user}");
   shell_exec("bash -c \"echo -e '{$password}\\n{$password}' | passwd {$user}\"");
-  //shell_exec("mkdir /home/{$user}/public_html");
-  
-  
-  // shell_exec("chown {$user} /home/{$user}/public_html");
-  // shell_exec("echo 'Hola {$user}' > /home/{$user}/public_html/index.html");
-  // shell_exec("chown -R {$user}:www-data /home/{$user}/public_html");
-  // shell_exec("sudo chmod -R g+w /home/{$user}/public_html/");
 
 shell_exec("echo '
 ServerName 127.0.0.1
@@ -98,8 +91,8 @@ Require all granted
 </Directory>
 </VirtualHost>
 ######FIN {$name}######
-' >> /etc/apache2/apache2.conf");
-
+' > /etc/apache2/sites-available/{$domain}.conf");
+shell_exec("sudo a2ensite /etc/apache2/sites-available/{$domain}.conf");
 }
 
 
@@ -141,9 +134,6 @@ function shell_user_new($user, $password, $domain, $token)
 function curl_adddomain($apiToken, $domainName, $ipAddress)
 {
   if(preg_match('#.+?\..+?\.#',$domainName))return false;
-  // $apiToken = "TU_TOKEN_API";
-  // $domainName = "ejemplo.com";  // Nombre del dominio que deseas agregar
-  // $ipAddress = "192.168.1.1";  // Dirección IP asociada con el dominio
 
   $ch = curl_init();
 
@@ -174,9 +164,6 @@ function curl_adddomain($apiToken, $domainName, $ipAddress)
 
 function curl_removedomain($domain, $apiToken)
 {
-
-
-
   $ch = curl_init();
 
   curl_setopt($ch, CURLOPT_URL, "https://api.digitalocean.com/v2/domains/$domain");
@@ -262,10 +249,14 @@ function shell_domain_new($user, $name, $domain, $folder, $token)
 
 function shell_domain_delete($name, $domain, $token)
 {
-  $cont = @file_get_contents("/etc/apache2/apache2.conf");
-  $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
+  //$cont = @file_get_contents("/etc/apache2/apache2.conf");
+ // $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
   curl_removedomain($domain, $token);
-  $cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
+  //$cont = @file_put_contents("/etc/apache2/apache2.conf", $cont);
+  shell_exec("userdel {$user}");
+  shell_exec("sudo a2dissite {$domain}.conf");
+  shell_exec("sudo rm {$domain}.conf");
+  shell_exec("sudo rm /etc/apache2/sites-enabled/{$domain}.conf");
 
   // $cont = @file_get_contents("/etc/httpd/conf/httpd.conf");
   // $cont = preg_replace("/######INI {$name}######.+?######FIN {$name}######/s", '', $cont);
