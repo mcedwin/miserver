@@ -270,6 +270,7 @@ function shell_domain_delete($name, $domain, $token)
   shell_exec("sudo rm {$domain}.conf");
   shell_exec("sudo rm /etc/apache2/sites-enabled/{$domain}.conf");
 
+  shell_exec("sudo rm /etc/apache2/sites-available/{$domain}.conf");
   shell_exec("sudo rm /etc/apache2/sites-available/{$domain}-le-ssl.conf");
 
   // $cont = @file_get_contents("/etc/httpd/conf/httpd.conf");
