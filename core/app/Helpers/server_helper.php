@@ -90,7 +90,8 @@ function newwebfolder($user,$name,$folder,$domain)
 ######INI {$name}######
 <VirtualHost *:80>
 DocumentRoot /home/{$user}/{$folder}
-ServerName {$domain}
+ServerName www.{$domain}
+ServerAlias {$domain}
 AssignUserID {$user} {$user}
 <Directory /home/{$user}/{$folder}/>
 Options Indexes FollowSymLinks MultiViews
