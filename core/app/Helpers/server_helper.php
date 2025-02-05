@@ -191,10 +191,10 @@ curl_close($ch);
 
  
   if ($httpCode == 201) {
-        echo "Registros DNS creados correctamente para $domainName\n";
+        echo "Registros DNS creados correctamente ddpara $domainName\n";
         return true;
     } else {
-        echo "Error al agregar el registro CNAME: $response\n";
+        echo "Error al agregar el registro CNAMEdd: $response\n";
         return false;
     }
 }
