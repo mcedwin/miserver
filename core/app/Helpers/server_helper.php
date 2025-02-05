@@ -144,7 +144,7 @@ function shell_user_new($user, $password, $domain, $token)
     \"");
 }
 
-function curl_adddomain1($apiToken, $domainName, $ipAddress)
+function curl_adddomain($apiToken, $domainName, $ipAddress)
 {
   if(preg_match('#.+?\..+?\.#',$domainName))return false;
 
@@ -191,14 +191,15 @@ curl_close($ch);
 
  
   if ($httpCode == 201) {
-    // echo "El dominio $domainName ha sido agregado correctamente.";
-  } else {
-    // echo "Hubo un problema al agregar el dominio $domainName. Código HTTP: $httpCode\n";
-    // echo "Respuesta de la API: $response";
-  }
+        echo "Registros DNS creados correctamente para $domainName\n";
+        return true;
+    } else {
+        echo "Error al agregar el registro CNAME: $response\n";
+        return false;
+    }
 }
 
-function curl_adddomain($apiToken, $domainName, $ipAddress)
+function curl_adddomain1($apiToken, $domainName, $ipAddress)
 {
     // Validación del dominio
     if (!filter_var($ipAddress, FILTER_VALIDATE_IP)) {
