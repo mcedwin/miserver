@@ -144,7 +144,7 @@ function shell_user_new($user, $password, $domain, $token)
     \"");
 }
 
-function curl_adddomain($apiToken, $domainName, $ipAddress)
+function curl_adddomain1($apiToken, $domainName, $ipAddress)
 {
   if(preg_match('#.+?\..+?\.#',$domainName))return false;
 
@@ -197,6 +197,70 @@ curl_close($ch);
     // echo "Respuesta de la API: $response";
   }
 }
+
+function curl_adddomain($apiToken, $domainName, $ipAddress)
+{
+    // Validación del dominio
+    if (!filter_var($ipAddress, FILTER_VALIDATE_IP)) {
+        return false;
+    }
+
+    // Crear un registro A para el dominio raíz (@)
+    $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_URL, "https://api.digitalocean.com/v2/domains/$domainName/records");
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer $apiToken",
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        "type" => "A",
+        "name" => "@",
+        "data" => $ipAddress,
+        "ttl" => 3600
+    ]));
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode != 201) {
+        echo "Error al agregar el registro A: $response\n";
+        return false;
+    }
+
+    // Crear un registro CNAME para www
+    $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_URL, "https://api.digitalocean.com/v2/domains/$domainName/records");
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer $apiToken",
+        "Content-Type: application/json"
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        "type" => "CNAME",
+        "name" => "www",
+        "data" => $domainName,  // Apunta al dominio raíz
+        "ttl" => 3600
+    ]));
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode == 201) {
+        echo "Registros DNS creados correctamente para $domainName\n";
+        return true;
+    } else {
+        echo "Error al agregar el registro CNAME: $response\n";
+        return false;
+    }
+}
+
 
 function curl_removedomain($domain, $apiToken)
 {
