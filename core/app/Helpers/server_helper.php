@@ -167,6 +167,29 @@ function curl_adddomain($apiToken, $domainName, $ipAddress)
 
   curl_close($ch);
 
+
+$ch = curl_init();
+
+curl_setopt($ch, CURLOPT_URL, "https://api.digitalocean.com/v2/domains/$domainName/records");
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "Authorization: Bearer $apiToken",
+    "Content-Type: application/json"
+]);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    "type" => "CNAME",
+    "name" => "www",
+    "data" => $domainName,  // Apunta a tu dominio raíz
+    "ttl" => 3600
+]));
+
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+curl_close($ch);
+
+ 
   if ($httpCode == 201) {
     // echo "El dominio $domainName ha sido agregado correctamente.";
   } else {
