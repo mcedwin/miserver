@@ -179,7 +179,7 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 ]);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
     "type" => "CNAME",
-    "name" => "www",
+    "name" => "www.",
     "data" => $domainName,  // Apunta a tu dominio raíz
     "ttl" => 3600
 ]));
