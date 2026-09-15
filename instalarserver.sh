@@ -88,11 +88,11 @@ log "3/9 Configurando MySQL (panel: base miserver + credenciales)."
 systemctl enable --now mysql 2>/dev/null || service mysql start || true
 
 PANEL_DB_PASS="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)"
+# MySQL 8.0 (Ubuntu 24.04) rechaza GRANT sobre information_schema: no se otorga.
 mysql <<SQL
 CREATE DATABASE IF NOT EXISTS miserver CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'miserver'@'localhost' IDENTIFIED BY '${PANEL_DB_PASS}';
 GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost';
-GRANT SELECT ON information_schema.tables TO 'miserver'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
@@ -164,6 +164,18 @@ systemctl daemon-reload >/dev/null 2>&1 || true
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 
+# Certificado autofirmado para poder usar HTTPS por IP/subdominio de inmediato
+# (mientras no haya DNS + Let's Encrypt). Cubre IP y dominio del panel.
+install -d -m 0755 /etc/ssl/miserver
+if [ ! -f /etc/ssl/miserver/miserver-selfsigned.key ] || [ ! -f /etc/ssl/miserver/miserver-selfsigned.crt ]; then
+  openssl req -x509 -nodes -newkey rsa:2048 -days 1095 \
+    -keyout /etc/ssl/miserver/miserver-selfsigned.key \
+    -out /etc/ssl/miserver/miserver-selfsigned.crt \
+    -subj "/CN=${PANEL_HOST}" \
+    -addext "subjectAltName=IP:${IP},DNS:${PANEL_HOST},DNS:www.${PANEL_HOST}" >/dev/null 2>&1
+fi
+chmod 600 /etc/ssl/miserver/miserver-selfsigned.key 2>/dev/null || true
+
 cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
 <VirtualHost _default_:80>
   ServerName $PANEL_HOST
@@ -199,9 +211,52 @@ cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
   ErrorLog \${APACHE_LOG_DIR}/miserver-panel-error.log
   CustomLog \${APACHE_LOG_DIR}/miserver-panel-access.log combined
 </VirtualHost>
+
+<VirtualHost _default_:443>
+  ServerName $PANEL_HOST
+  ServerAlias www.$PANEL_HOST $IP
+  DocumentRoot /home/miserver/panel
+
+  SSLEngine on
+  SSLCertificateFile /etc/ssl/miserver/miserver-selfsigned.crt
+  SSLCertificateKeyFile /etc/ssl/miserver/miserver-selfsigned.key
+
+  <Directory /home/miserver/panel>
+    Options -Indexes
+    AllowOverride None
+    Require all granted
+    FallbackResource /index.php
+  </Directory>
+
+  <IfModule mod_ruid2.c>
+    RMode config
+    RUidGid miserver miserver
+  </IfModule>
+
+  <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
+    Require all denied
+  </LocationMatch>
+  <FilesMatch "\.(sql|md|sh|example|bak|swp)$">
+    Require all denied
+  </FilesMatch>
+
+  <IfModule mod_php.c>
+    php_admin_value upload_max_filesize 64M
+    php_admin_value post_max_size 80M
+    php_admin_value memory_limit 128M
+    php_admin_value display_errors Off
+  </IfModule>
+
+  ErrorLog \${APACHE_LOG_DIR}/miserver-panel-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-panel-access.log combined
+</VirtualHost>
 APACHE
 chmod 644 "/etc/apache2/sites-available/${PANEL_HOST}.conf"
 a2ensite "${PANEL_HOST}.conf" >/dev/null 2>&1 || true
+# Desactiva el sitio por defecto de Ubuntu: de lo contrario, las peticiones por IP
+# (o con Host desconocido) las gana "000-default" (/var/www/html) y no el panel.
+a2dissite 000-default.conf >/dev/null 2>&1 || true
+a2dissite default-ssl.conf >/dev/null 2>&1 || true
 apache2ctl -t >/dev/null && systemctl reload apache2 || exit 1
 
 # ---------------------------------------------------------------------------
