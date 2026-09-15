@@ -11,6 +11,7 @@ require __DIR__ . '/app/bootstrap.php';
 
 $ROUTES = [
     ['GET',  '/',                   ['home',    'index']],
+    ['GET',  '/home',               ['home',    'index']],
     ['GET',  '/download',           ['home',    'download']],
     ['POST', '/backup',             ['home',    'backup']],
     ['GET',  '/login',              ['login',   'login']],
