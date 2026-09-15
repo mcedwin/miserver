@@ -5,6 +5,7 @@
 </div>
 <form method="post" action="<?= url('files/save') ?>" class="card">
   <?= csrf_field() ?>
+  <input type="hidden" name="u" value="<?= (int)$ctx['id'] ?>">
   <input type="hidden" name="p" value="<?= e($rel) ?>">
   <textarea class="form-control mono" name="content" rows="24" spellcheck="false" style="width:100%;font-family:Consolas,monospace"><?= e($content) ?></textarea>
   <div class="row-form mt-1">

@@ -61,6 +61,12 @@
     var confirmMsg = btn.getAttribute('data-confirm');
     if (confirmMsg && !window.confirm(confirmMsg)) return;
     var data = { _csrf: btn.getAttribute('data-csrf') || '' };
+    var promptMsg = btn.getAttribute('data-prompt');
+    if (promptMsg) {
+      var val = window.prompt(promptMsg);
+      if (val === null || val.trim() === '') return;
+      data.name = val.trim();
+    }
     for (var i = 0; i < btn.attributes.length; i++) {
       var at = btn.attributes[i];
       if (at.name.indexOf('data-extra-') === 0) data[at.name.slice(11)] = at.value;

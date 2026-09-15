@@ -46,6 +46,15 @@ vrel() {
 
 fs_full() { echo "/home/$1/$2"; }
 
+# Chown por uid/gid del usuario (evita "invalid user" si falta la cuenta Linux)
+fchown() { # $1+=rutas
+  local u="$1"; shift
+  local uid gid
+  uid="$(id -u "$u" 2>/dev/null)" || die "usuario $u no existe en el sistema"
+  gid="$(id -g "$u" 2>/dev/null)" || die "grupo $u no existe"
+  chown "$uid:$gid" "$@"
+}
+
 apache_reload() {
   apache2ctl -t >/dev/null 2>&1 || die "configuracion apache invalida"
   systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
@@ -247,7 +256,7 @@ case "$cmd" in
     full="$(fs_full "$u" "$r")"
     mkdir -p "$(dirname "$full")"
     cat > "$full"          # contenido por stdin
-    chown "$u:$u" "$full"
+    fchown "$u" "$full"
     chmod 644 "$full"
     echo ok
     ;;
@@ -259,7 +268,7 @@ case "$cmd" in
     full="$(fs_full "$u" "$r")"
     mkdir -p "$(dirname "$full")"
     mv "$src" "$full"
-    chown "$u:$u" "$full"
+    fchown "$u" "$full"
     chmod 644 "$full"
     echo ok
     ;;
@@ -268,7 +277,19 @@ case "$cmd" in
     [ $# -ge 2 ] || die "fs:mkdir <usuario> <ruta-relativa>"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"
     mkdir -p "$(fs_full "$u" "$r")"
-    chown "$u:$u" "$(fs_full "$u" "$r")"
+    fchown "$u" "$(fs_full "$u" "$r")"
+    echo ok
+    ;;
+
+  fs:mv)
+    [ $# -ge 3 ] || die "fs:mv <usuario> <origen-rel> <destino-rel>"
+    u="$1"; s="$2"; d="$3"; vuser "$u"; vrel "$s"; vrel "$d"
+    src="$(fs_full "$u" "$s")"; dst="$(fs_full "$u" "$d")"
+    [ -e "$src" ] || die "no existe"
+    mkdir -p "$(dirname "$dst")"
+    mv "$src" "$dst"
+    [ -d "$dst" ] || chmod 644 "$dst"
+    fchown "$u" "$dst"
     echo ok
     ;;
 

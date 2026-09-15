@@ -191,6 +191,21 @@ function ctx_user(array $u): array
     return $row;
 }
 
+/** Como ctx_user pero leyendo el usuario de un POST (forms del gestor de archivos). */
+function ctx_user_from_post(array $u): array
+{
+    if (($u['role'] ?? '') === 'admin') {
+        $id = (int) post('u', '0');
+        if ($id > 0) {
+            $row = db_one('SELECT id, user, domain FROM user WHERE id = ?', [$id]);
+            if ($row) {
+                return $row;
+            }
+        }
+    }
+    return ctx_user($u);
+}
+
 function user_row(int $id): ?array
 {
     return db_one('SELECT * FROM user WHERE id = ?', [$id]) ?: null;

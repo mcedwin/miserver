@@ -131,7 +131,7 @@ function ctrl_files_save(): void
 {
     $u = require_login();
     csrf_check();
-    $ctx = ctx_user($u);
+    $ctx = ctx_user_from_post($u);
     $base = file_base($ctx);
     $rel = file_rel(post('p', ''), $ctx);
     $content = (string) ($_POST['content'] ?? '');
@@ -146,7 +146,7 @@ function ctrl_files_mkdir(): void
 {
     $u = require_login();
     csrf_check();
-    $ctx = ctx_user($u);
+    $ctx = ctx_user_from_post($u);
     $rel = file_rel(post('p', '') . '/' . trim(post('name', '')), $ctx);
     if ($rel === null || $rel === '') { respond(false, 'Directorio no válido.'); }
     $r = ctl_run(['fs:mkdir', $ctx['user'], $rel]);
@@ -158,7 +158,7 @@ function ctrl_files_upload(): void
 {
     $u = require_login();
     csrf_check();
-    $ctx = ctx_user($u);
+    $ctx = ctx_user_from_post($u);
     $rel = file_rel(post('p', ''), $ctx);
     if ($rel === null) { respond(false, 'Directorio no válido.'); }
     if (empty($_FILES['up']) || ($_FILES['up']['error'] ?? 1) !== UPLOAD_ERR_OK) {
@@ -181,13 +181,33 @@ function ctrl_files_delete(): void
 {
     $u = require_login();
     csrf_check();
-    $ctx = ctx_user($u);
+    $ctx = ctx_user_from_post($u);
     $rel = file_rel(post('p', ''), $ctx);
     if ($rel === null || $rel === '') { respond(false, 'Ruta no válida.'); }
     $r = ctl_run(['fs:rm', $ctx['user'], $rel]);
     if ($r['exit'] !== 0) { respond(false, 'Error al eliminar: ' . e($r['out'])); }
     $parent = dirname($rel);
     respond(true, 'Eliminado.', url('files?p=' . urlencode($parent === '.' ? '' : $parent)));
+}
+
+function ctrl_files_rename(): void
+{
+    $u = require_login();
+    csrf_check();
+    $ctx = ctx_user_from_post($u);
+    $base = file_base($ctx);
+    $rel = file_rel(post('p', ''), $ctx);
+    $name = trim(post('name', ''));
+    if ($rel === null || $rel === '') { respond(false, 'Ruta no válida.'); }
+    if ($name === '' || strpbrk($name, "/\\\0") !== false) { respond(false, 'Nombre no válido.'); }
+    $parent = ($d = dirname($rel)) === '.' ? '' : $d;
+    $destRel = file_rel($parent === '' ? $name : $parent . '/' . $name, $ctx);
+    if ($destRel === null) { respond(false, 'Destino no válido.'); }
+    if ($destRel === $rel) { respond(false, 'El nombre es el mismo.'); }
+    if (@is_link($base . '/' . $rel)) { respond(false, 'No se puede renombrar enlaces.'); }
+    $r = ctl_run(['fs:mv', $ctx['user'], $rel, $destRel]);
+    if ($r['exit'] !== 0) { respond(false, 'Error al renombrar: ' . e($r['out'])); }
+    respond(true, 'Renombrado.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent)));
 }
 
 function ctrl_files_raw(): void

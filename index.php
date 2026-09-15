@@ -44,15 +44,13 @@ $ROUTES = [
     ['POST', '/domains/{i}/ssl',    ['domains', 'ssl']],
     ['POST', '/domains/{i}/dns',    ['domains', 'dns']],
 
-    ['GET',  '/cron',               ['cron',    'index']],
-    ['POST', '/cron',               ['cron',    'save']],
-
     ['GET',  '/files',              ['files',   'index']],
     ['GET',  '/files/raw',          ['files',   'raw']],
     ['GET',  '/files/edit',         ['files',   'editor']],
     ['POST', '/files/save',         ['files',   'save']],
     ['POST', '/files/mkdir',        ['files',   'mkdir']],
     ['POST', '/files/upload',       ['files',   'upload']],
+    ['POST', '/files/rename',       ['files',   'rename']],
     ['POST', '/files/delete',       ['files',   'delete']],
 
     ['GET',  '/settings',           ['settings', 'index']],
