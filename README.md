@@ -58,12 +58,26 @@ certificados Let's Encrypt y vsftpd.
 
 ### Requisitos manuales
 
-1. **DNS** — apunta en tu registrador el dominio (y `*.dominio` si usas
-   subdominios) a la IP de la VPS.
-2. **Puertos** en el firewall/os-security:
+1. **DNS** — crea el registro A para el panel en tu registrador o proveedor
+   DNS (en DigitalOcean: panel de DNS del droplet):
+   ```
+   A   panel   <IP del servidor>
+   A   www     <IP del servidor>   (opcional)
+   ```
+   Espera la propagación y comprueba con `dig +short panel.tudominio.com`.
+
+2. **Apache** — el instalador ya crea el vhost con `ServerName panel.tudominio.com`.
+   Si cambiaste el dominio después de instalar, pasa el nuevo nombre al script
+   (`bash instalarserver.sh panel.tudominio.com ...`) o renombra el vhost a mano.
+
+3. **Firewall** — abre los puertos en ufw/os-security:
    - 22 (SSH) · 80/443 (panel y sitios) · 21/10000-10100 (FTP)
-3. **Token DigitalOcean** (opcional) para el registro DNS automático desde el
-   panel; se configura en `Configuración » Token DigitalOcean`.
+
+4. **HTTPS** — cuando el A record resuelva, en el panel pulsa **Activar SSL**
+   en `panel.tudominio.com` (Dominios), o ejecuta
+   `certbot --apache -d panel.tudominio.com`.
+5. **Token DigitalOcean** (opcional) — para que el panel cree los registros DNS
+   automáticamente al añadir un dominio: `Configuración » Token DigitalOcean`.
 
 ### Migración desde el panel anterior (CodeIgniter)
 
