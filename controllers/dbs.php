@@ -57,9 +57,7 @@ function ctrl_dbs_dbu_store(): void
     csrf_check();
     $ctx = ctx_user($u);
     $name = require_match(RE_DBUSER, post('user'), 'Usuario BD: solo minúsculas, números y _');
-    $pass = post('password');
-    if (strlen($pass) < 8) { respond(false, 'Contraseña mínima 8 caracteres.'); }
-    require_match(RE_PASSWORD, $pass, 'Contraseña con caracteres no permitidos (solo letras, números y !@#$%^&*()_+-=[]{};:,.<>?~).');
+    $pass = valid_panel_password(post('password'), 'Contraseña del usuario BD');
     if (db_one('SELECT id FROM db_user WHERE user_id = ? AND user = ?', [$ctx['id'], $name])) {
         respond(false, 'Ese usuario ya existe.');
     }

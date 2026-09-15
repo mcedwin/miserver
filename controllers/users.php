@@ -43,10 +43,8 @@ function ctrl_users_store(): void
     csrf_check();
     $user = require_match(RE_USERNAME, post('user'), 'Usuario: 3-32 caracteres minúsculas (a-z y 0-9_)');
     $domain = require_match(RE_DOMAIN, strtolower(post('domain')), 'Dominio no válido.');
-    $pass = post('password');
-    if (strlen($pass) < 8) { respond(false, 'Contraseña mínima 8 caracteres.'); }
+    $pass = valid_panel_password(post('password'), 'Contraseña');
     if ($pass !== post('password2')) { respond(false, 'Las contraseñas no coinciden.'); }
-    require_match(RE_PASSWORD, $pass, 'Contraseña con caracteres no permitidos (solo letras, números y !@#$%^&*()_+-=[]{};:,.<>?~).');
     if (db_one('SELECT id FROM user WHERE user = ?', [$user])) { respond(false, 'Usuario ya existe.'); }
     if (db_one('SELECT id FROM domain WHERE domain = ?', [$domain])) { respond(false, 'Dominio ya registrado.'); }
 
@@ -110,8 +108,7 @@ function ctrl_users_update(array $p): void
     }
     $pass = post('password');
     if ($pass !== '') {
-        if (strlen($pass) < 8) { respond(false, 'Contraseña mínima 8 caracteres.'); }
-        require_match(RE_PASSWORD, $pass, 'Contraseña con caracteres no permitidos (solo letras, números y !@#$%^&*()_+-=[]{};:,.<>?~).');
+        $pass = valid_panel_password($pass, 'Contraseña');
         db_run('UPDATE user SET password = ? WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
         $rset = ctl_run(['user:setpw', $row['user'], $pass]);
         if ($rset['exit'] !== 0) {

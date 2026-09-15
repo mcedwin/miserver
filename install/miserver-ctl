@@ -33,14 +33,15 @@ vuser() { [ $# -ge 1 ] && [[ "$1" =~ $re_user ]] || die "usuario no valido"; }
 vdom()  { [ $# -ge 1 ] && [[ "$1" =~ $re_dom ]]  || die "dominio no valido"; }
 vname() { [ $# -ge 1 ] && [[ "$1" =~ $re_name ]] || die "nombre no valido"; }
 
-# vpass: sin regex (bash rompe [\\[\\]] en [[ =~ ]]); caso por caso.
-re_pass_chars=']a-zA-Z0-9!@#$%^&*()_+=[{};:,.<>?~-'
+# vpass: solo longitud (8-72). Se excluyen ' y \ (rompen la sentencia MySQL del wrapper).
 vpass() {
-  [ $# -ge 1 ] || die "contrasena con caracteres no permitidos"
+  [ $# -ge 1 ] || die "contrasena invalida"
   local p="$1"
-  if [ ${#p} -lt 8 ] || [ ${#p} -gt 72 ]; then die "contrasena con caracteres no permitidos"; fi
+  if [ ${#p} -lt 8 ] || [ ${#p} -gt 72 ]; then die "la contrasena debe tener entre 8 y 72 caracteres"; fi
   case "$p" in
-    *[!$re_pass_chars]*) die "contrasena con caracteres no permitidos" ;;
+    *\'*) die "la contrasena no puede contener comillas simples" ;;
+    *\"*) die "la contrasena no puede contener comillas dobles" ;;
+    *\\*) die "la contrasena no puede contener backslash" ;;
   esac
 }
 

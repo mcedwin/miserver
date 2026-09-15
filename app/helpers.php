@@ -105,7 +105,20 @@ const RE_DBNAME   = '/^[a-z0-9_]{1,64}$/';
 const RE_DBUSER   = '/^[a-z0-9_]{1,64}$/';
 const RE_DOMAIN   = '/^(?=.{4,190}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/';
 const RE_FOLDER   = '/^[^.][A-Za-z0-9_\-.]{0,254}$/'; // relativo, sin .., sin empezar por punto
-const RE_PASSWORD = '/^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:,.<>?~]{8,72}$/'; // igual que el wrapper
+
+// Contraseñas: solo se exige longitud 8-72. Se rechazan ' y \ porque
+// romperían la sentencia MySQL que construye el wrapper.
+function valid_panel_password(string $pass, string $label = 'Contraseña'): string
+{
+    $n = strlen($pass);
+    if ($n < 8 || $n > 72) {
+        respond(false, $label . ' debe tener entre 8 y 72 caracteres.');
+    }
+    if (strpos($pass, "'") !== false || strpos($pass, '\\') !== false) {
+        respond(false, $label . ' no puede contener comillas ni backslash.');
+    }
+    return $pass;
+}
 
 /* ------------------------------------------------------------------ */
 /* Cifrado simple (para contraseñas de usuarios de BD)                 */
