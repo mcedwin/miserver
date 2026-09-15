@@ -28,12 +28,21 @@ cmd="$1"; shift
 re_user='^[a-z_][a-z0-9_-]{1,31}$'
 re_dom='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$'
 re_name='^[a-z0-9_]{1,64}$'
-re_pass='^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:,.<>?~]{8,72}$'
 
 vuser() { [ $# -ge 1 ] && [[ "$1" =~ $re_user ]] || die "usuario no valido"; }
 vdom()  { [ $# -ge 1 ] && [[ "$1" =~ $re_dom ]]  || die "dominio no valido"; }
 vname() { [ $# -ge 1 ] && [[ "$1" =~ $re_name ]] || die "nombre no valido"; }
-vpass() { [ $# -ge 1 ] && [[ "$1" =~ $re_pass ]] || die "contrasena con caracteres no permitidos"; }
+
+# vpass: sin regex (bash rompe [\\[\\]] en [[ =~ ]]); caso por caso.
+re_pass_chars=']a-zA-Z0-9!@#$%^&*()_+=[{};:,.<>?~-'
+vpass() {
+  [ $# -ge 1 ] || die "contrasena con caracteres no permitidos"
+  local p="$1"
+  if [ ${#p} -lt 8 ] || [ ${#p} -gt 72 ]; then die "contrasena con caracteres no permitidos"; fi
+  case "$p" in
+    *[!$re_pass_chars]*) die "contrasena con caracteres no permitidos" ;;
+  esac
+}
 
 # Ruta relativa dentro del home: sin absolutas, sin '..'
 vrel() {
