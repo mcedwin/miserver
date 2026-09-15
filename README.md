@@ -66,7 +66,9 @@ certificados Let's Encrypt y vsftpd.
    ```
    Espera la propagación y comprueba con `dig +short panel.tudominio.com`.
 
-2. **Apache** — el instalador ya crea el vhost con `ServerName panel.tudominio.com`.
+2. **Apache** — el instalador ya crea el vhost con `ServerName panel.tudominio.com`
+   y además lo deja como vhost *default* con la IP como alias, así que también
+   puedes entrar por `http://<IP-del-servidor>` mientras el DNS no resuelva.
    Si cambiaste el dominio después de instalar, pasa el nuevo nombre al script
    (`bash instalarserver.sh panel.tudominio.com ...`) o renombra el vhost a mano.
 

@@ -140,10 +140,12 @@ systemctl disable --now miserver.service >/dev/null 2>&1 || true
 rm -f /etc/systemd/system/miserver.service
 systemctl daemon-reload >/dev/null 2>&1 || true
 
+IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+
 cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
-<VirtualHost *:80>
+<VirtualHost _default_:80>
   ServerName $PANEL_HOST
-  ServerAlias www.$PANEL_HOST
+  ServerAlias www.$PANEL_HOST $IP
   DocumentRoot /home/miserver/panel
 
   <Directory /home/miserver/panel>
@@ -192,8 +194,8 @@ cat <<EOF
 ═══════════════════════════════════════════════════════════════════
   Panel "Mi Server" instalado.
 
-  URL del panel : http://${PANEL_HOST}  (si apuntas el DNS, habilita SSL desde
-                  Configuración → emite el certificado con 'DNS' y 'SSL')
+  URL del panel : http://${PANEL_HOST}   (o directamente por IP: http://${IP})
+                 HTTPS: entra al panel → Dominios → botón SSL cuando el DNS resuelva
 
   Admin         : ${ADMIN_USER}  /  ${ADMIN_PASS}
 
