@@ -123,7 +123,6 @@ if [ ! -f /home/miserver/panel/index.php ]; then
   else
     echo "   clonando panel desde: $PANEL_GIT_URL ($PANEL_GIT_BRANCH)"
     git clone -q -b "$PANEL_GIT_BRANCH" "$PANEL_GIT_URL" /home/miserver/panel
-    rm -rf /home/miserver/panel/.git
   fi
 elif [ ! -f /home/miserver/panel/res/miserver.sql ]; then
   SRC="$(cd "$(dirname "$0")" && pwd)"
