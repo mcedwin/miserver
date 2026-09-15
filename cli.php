@@ -77,7 +77,7 @@ try {
                 password_hash($opt['pass'], PASSWORD_DEFAULT), 'admin',
             ]);
             $uid = (int) db_last_id();
-            db_run('INSERT INTO domain (user_id, domain, folder, ssl, enabled) VALUES (?, ?, ?, 0, 1)', [$uid, $domain, 'public_html']);
+            db_run('INSERT INTO domain (user_id, domain, folder, `ssl`, enabled) VALUES (?, ?, ?, 0, 1)', [$uid, $domain, 'public_html']);
             cli_out('Admin creado en la BD: ' . $user . ' / ' . $domain);
 
             if (ctl_available()) {

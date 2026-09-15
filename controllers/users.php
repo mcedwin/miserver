@@ -53,7 +53,7 @@ function ctrl_users_store(): void
         $user, post('name'), post('description'), $domain, password_hash($pass, PASSWORD_DEFAULT), 'user',
     ]);
     $uid = (int) db_last_id();
-    db_run('INSERT INTO domain (user_id, domain, folder, ssl, enabled) VALUES (?, ?, ?, 0, 1)', [$uid, $domain, 'public_html']);
+    db_run('INSERT INTO domain (user_id, domain, folder, `ssl`, enabled) VALUES (?, ?, ?, 0, 1)', [$uid, $domain, 'public_html']);
 
     $r = ctl_run(['user:add', $user, $pass, $domain]);
     if ($r['exit'] !== 0) {

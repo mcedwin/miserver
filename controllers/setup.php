@@ -57,7 +57,7 @@ function ctrl_setup_run(): void
     ]);
 
     // Sitio principal del usuario
-    db_run('INSERT INTO domain (user_id, domain, folder, ssl, enabled) VALUES (?, ?, ?, 0, 1)', [
+    db_run('INSERT INTO domain (user_id, domain, folder, `ssl`, enabled) VALUES (?, ?, ?, 0, 1)', [
         $uid, $domain, 'public_html',
     ]);
 

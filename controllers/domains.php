@@ -34,7 +34,7 @@ function ctrl_domains_store(): void
     $owner = db_one('SELECT id, user FROM user WHERE id = ?', [$targetId]);
     if (!$owner) { respond(false, 'Usuario no válido.'); }
 
-    db_run('INSERT INTO domain (user_id, domain, folder, ssl, enabled) VALUES (?, ?, ?, 0, 1)', [
+    db_run('INSERT INTO domain (user_id, domain, folder, `ssl`, enabled) VALUES (?, ?, ?, 0, 1)', [
         $owner['id'], $domain, $folder,
     ]);
     $id = (int) db_last_id();
