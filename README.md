@@ -47,7 +47,8 @@ directorio `/assets` se sirve directo por Apache.
 ```bash
 # como root
 sudo apt update
-curl -sSL https://mcedwin.github.io/miserver/instalarserver.sh -o instalarserver.sh
+curl -sSL https://raw.githubusercontent.com/mcedwin/miserver/main/instalarserver.sh -o instalarserver.sh
+head -n1 instalarserver.sh        # debe mostrar: #!/bin/bash (si no, revisa la URL)
 bash instalarserver.sh panel.tudominio.com admin CLAVE_SEGURA
 ```
 
@@ -148,7 +149,8 @@ php cli.php migrate                         # migración desde esquema antiguo
 ```bash
 # como root
 sudo apt update
-curl -sSL https://mcedwin.github.io/miserver/instalarserver.sh -o instalarserver.sh
+curl -sSL https://raw.githubusercontent.com/mcedwin/miserver/main/instalarserver.sh -o instalarserver.sh
+head -n1 instalarserver.sh        # debe mostrar: #!/bin/bash (si no, revisa la URL)
 bash instalarserver.sh panel.tudominio.com admin CLAVE_SEGURA
 ```
 
