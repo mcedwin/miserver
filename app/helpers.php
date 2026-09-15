@@ -105,6 +105,7 @@ const RE_DBNAME   = '/^[a-z0-9_]{1,64}$/';
 const RE_DBUSER   = '/^[a-z0-9_]{1,64}$/';
 const RE_DOMAIN   = '/^(?=.{4,190}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/';
 const RE_FOLDER   = '/^[^.][A-Za-z0-9_\-.]{0,254}$/'; // relativo, sin .., sin empezar por punto
+const RE_PASSWORD = '/^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:,.<>?~]{8,72}$/'; // igual que el wrapper
 
 /* ------------------------------------------------------------------ */
 /* Cifrado simple (para contraseñas de usuarios de BD)                 */

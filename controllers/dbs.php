@@ -59,12 +59,16 @@ function ctrl_dbs_dbu_store(): void
     $name = require_match(RE_DBUSER, post('user'), 'Usuario BD: solo minúsculas, números y _');
     $pass = post('password');
     if (strlen($pass) < 8) { respond(false, 'Contraseña mínima 8 caracteres.'); }
+    require_match(RE_PASSWORD, $pass, 'Contraseña con caracteres no permitidos (solo letras, números y !@#$%^&*()_+-=[]{};:,.<>?~).');
     if (db_one('SELECT id FROM db_user WHERE user_id = ? AND user = ?', [$ctx['id'], $name])) {
         respond(false, 'Ese usuario ya existe.');
     }
     db_run('INSERT INTO db_user (user_id, user, password) VALUES (?, ?, ?)', [$ctx['id'], $name, enc($pass)]);
     $r = ctl_run(['dbu:add', db_prefix($ctx['user'], $name), $pass]);
-    if ($r['exit'] !== 0) { respond(false, 'Error del sistema: ' . e($r['out'])); }
+    if ($r['exit'] !== 0) {
+        db_run('DELETE FROM db_user WHERE id = ?', [(int) db_last_id()]);
+        respond(false, 'Error del sistema: ' . e($r['out']));
+    }
     respond(true, 'Usuario de base de datos creado.', url('dbs'));
 }
 

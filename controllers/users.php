@@ -46,6 +46,7 @@ function ctrl_users_store(): void
     $pass = post('password');
     if (strlen($pass) < 8) { respond(false, 'Contraseña mínima 8 caracteres.'); }
     if ($pass !== post('password2')) { respond(false, 'Las contraseñas no coinciden.'); }
+    require_match(RE_PASSWORD, $pass, 'Contraseña con caracteres no permitidos (solo letras, números y !@#$%^&*()_+-=[]{};:,.<>?~).');
     if (db_one('SELECT id FROM user WHERE user = ?', [$user])) { respond(false, 'Usuario ya existe.'); }
     if (db_one('SELECT id FROM domain WHERE domain = ?', [$domain])) { respond(false, 'Dominio ya registrado.'); }
 
@@ -57,6 +58,8 @@ function ctrl_users_store(): void
 
     $r = ctl_run(['user:add', $user, $pass, $domain]);
     if ($r['exit'] !== 0) {
+        db_run('DELETE FROM domain WHERE user_id = ?', [$uid]);
+        db_run('DELETE FROM user WHERE id = ?', [$uid]);
         respond(false, 'Error del sistema: ' . e($r['out']));
     }
 
@@ -108,8 +111,12 @@ function ctrl_users_update(array $p): void
     $pass = post('password');
     if ($pass !== '') {
         if (strlen($pass) < 8) { respond(false, 'Contraseña mínima 8 caracteres.'); }
+        require_match(RE_PASSWORD, $pass, 'Contraseña con caracteres no permitidos (solo letras, números y !@#$%^&*()_+-=[]{};:,.<>?~).');
         db_run('UPDATE user SET password = ? WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
-        ctl_run(['user:setpw', $row['user'], $pass]);
+        $rset = ctl_run(['user:setpw', $row['user'], $pass]);
+        if ($rset['exit'] !== 0) {
+            respond(false, 'Error del sistema: ' . e($rset['out']));
+        }
     }
     db_run('UPDATE user SET name = ?, description = ?, domain = ? WHERE id = ?', [
         post('name'), post('description'), $domain, $id,
