@@ -116,6 +116,10 @@ if [ ! -f /home/miserver/panel/index.php ]; then
   echo "   copiando código desde: $SRC"
   cp -rp "$SRC"/. /home/miserver/panel/
   # en producción se recomienda: git clone <repo> /home/miserver/panel
+elif [ ! -f /home/miserver/panel/res/miserver.sql ]; then
+  SRC="$(cd "$(dirname "$0")" && pwd)"
+  echo "   instalación previa incompleta: copiando res/ (esquema SQL)"
+  cp -rp "$SRC"/res /home/miserver/panel/
 fi
 for d in var/sessions var/cache var/log; do install -d -o miserver -g miserver "/home/miserver/panel/$d"; done
 chown -R miserver:miserver /home/miserver/panel
