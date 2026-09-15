@@ -1,66 +1,213 @@
 #!/bin/bash
-cd /root/
+# =============================================================================
+# instalarserver.sh — Instala y configura "Mi Server" en Ubuntu Server
+#
+# Uso (como ROOT):
+#   bash instalarserver.sh <panel_host> <panel_admin_user> <panel_admin_pass>
+#
+# Ejemplo:
+#   bash instalarserver.sh panel.misitio.com admin CLAVESEGURA123
+#
+# Qué hace:
+#   1) Actualiza el sistema e instala: Apache2, PHP+CLI, MySQL, certbot,
+#      vsftpd, libapache2-mod-mpm-itk y utilidades.
+#   2) Crea el usuario 'miserver' (dueño del panel y del proceso web).
+#   3) Configura MySQL: base 'miserver' + usuario propio del panel.
+#   4) Instala el código del panel en /home/miserver/panel.
+#   5) Crea el archivo .env con las credenciales de la BD del panel.
+#   6) Instala el wrapper privilegiado /usr/local/sbin/miserver-ctl + sudoers.
+#   7) Crea el vhost Apache del panel (ServerName=$PANEL_HOST en 80/443) que
+#      corre como usuario 'miserver' (mod_mpm_itk) — sin php -S ni puerto 8004.
+#   8) Prepara /var/backups/miserver y el comando backup:run del wrapper
+#      (backups MANUALES: archivos + carpetas + bases de datos, desde el panel).
+# =============================================================================
+set -euo pipefail
 
-sudo apt update -y
-sudo apt upgrade -y
+[ "$(id -u)" -eq 0 ] || { echo "Debes ejecutar este script como root." >&2; exit 1; }
 
-sudo apt install apache2 -y
-sudo apt install mysql-server -y
-sudo apt install php libapache2-mod-php php-mysql -y
-sudo apt-get install -y php8.3-cli php8.3-common php8.3-mysql php8.3-zip php8.3-gd php8.3-mbstring php8.3-curl php8.3-xml php8.3-bcmath php8.3-intl
+PANEL_HOST="${1:-panel.local}"
+ADMIN_USER="${2:-admin}"
+ADMIN_PASS="${3:-}"
 
-sudo a2dismod php8.3
-sudo a2dismod mpm_prefork
+[ -z "$ADMIN_PASS" ] && ADMIN_PASS="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 16)"
+[ ${#ADMIN_PASS} -ge 8 ] || { echo "La contraseña del admin debe tener 8+ caracteres." >&2; exit 1; }
 
-sudo apt-get install libapache2-mpm-itk -y
-sudo a2enmod mpm_itk
-sudo a2enmod php8.3
+export DEBIAN_FRONTEND=noninteractive
+log(){ echo "==> $*"; }
 
-sudo apt-get install curl unzip -y
-sudo apt-get install php php-curl -y
-curl -sS https://getcomposer.org/installer -o composer-setup.php
-php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-composer self-update
+# ---------------------------------------------------------------------------
+log "1/9 Actualizando sistema e instalando paquetes..."
+# ---------------------------------------------------------------------------
+apt-get update -y
+apt-get upgrade -y
+apt-get install -y --no-install-recommends \
+  apache2 libapache2-mod-php libapache2-mod-mpm-itk php-cli php-mysql php-mbstring \
+  php-xml php-curl mysql-server mysql-client certbot python3-certbot-apache \
+  vsftpd curl wget unzip acl rsync ca-certificates
 
+# MPM itk (usuario por vhost) + rewrite + ssl + php
+a2dismod -f mpm_prefork mpm_worker mpm_event >/dev/null 2>&1 || true
+a2enmod -f mpm_itk >/dev/null 2>&1 || true
+a2enmod rewrite headers ssl >/dev/null 2>&1 || true
+php_mod="$(ls /etc/apache2/mods-available/php*.load 2>/dev/null | sed 's#.*/##; s#\.load##' | head -1 || true)"
+[ -n "${php_mod:-}" ] && a2enmod -f "$php_mod" >/dev/null 2>&1 || true
+php -d opcache.enable_cli=1 -r 'echo "PHP ok\n";'
 
-echo -e '#!/bin/bash\nphp -S 0.0.0.0:8004 -t /root/miserver' > /root/start_php_server.sh
+# ---------------------------------------------------------------------------
+log "2/9 Creando usuario del panel (miserver)."
+# ---------------------------------------------------------------------------
+if ! id miserver >/dev/null 2>&1; then
+  useradd -m -s /bin/bash miserver
+fi
 
-chmod +x /root/start_php_server.sh
+# ---------------------------------------------------------------------------
+log "3/9 Configurando MySQL (panel: base miserver + credenciales)."
+# ---------------------------------------------------------------------------
+systemctl enable --now mysql 2>/dev/null || service mysql start || true
 
-echo -e '[Unit]\nDescription=PHP Development Server\n[Service]\nExecStart=/root/start_php_server.sh\nRestart=always\nUser=root\n[Install]\nWantedBy=multi-user.target' > /etc/systemd/system/php_server.service
+PANEL_DB_PASS="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)"
+mysql <<SQL
+CREATE DATABASE IF NOT EXISTS miserver CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'miserver'@'localhost' IDENTIFIED BY '${PANEL_DB_PASS}';
+GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost';
+GRANT SELECT ON information_schema.tables TO 'miserver'@'localhost';
+FLUSH PRIVILEGES;
+SQL
 
-git clone https://github.com/mcedwin/miserver.git /root/miserver
-cd /root/miserver/core
-composer install --no-interaction
+log "   (la base del panel NO monta a usuarios: esos se crean por el wrapper)"
 
-cd /root/
+# ---------------------------------------------------------------------------
+log "4/9 Instalando código del panel en /home/miserver/panel."
+# ---------------------------------------------------------------------------
+install -d -o miserver -g miserver /home/miserver/panel
+if [ ! -f /home/miserver/panel/index.php ]; then
+  SRC="$(cd "$(dirname "$0")" && pwd)"
+  echo "   copiando código desde: $SRC"
+  cp -rp "$SRC"/. /home/miserver/panel/
+  # en producción se recomienda: git clone <repo> /home/miserver/panel
+fi
+for d in var/sessions var/cache var/log; do install -d -o miserver -g miserver "/home/miserver/panel/$d"; done
+chown -R miserver:miserver /home/miserver/panel
+chmod -R u+rwX,go-w /home/miserver/panel
+chmod 600 /home/miserver/panel/.env 2>/dev/null || true
 
-sudo systemctl daemon-reload
-sudo systemctl enable php_server.service
-sudo systemctl start php_server.service
+# ---------------------------------------------------------------------------
+log "5/9 Creando .env del panel."
+# ---------------------------------------------------------------------------
+tee /home/miserver/panel/.env > /dev/null <<EOF
+APP_BASEURL=/
+APP_SECRET=$(tr -dc 'a-zA-Z0-9!@#$%^&*()_+-' < /dev/urandom | head -c 48)
+APP_TIMEZONE=America/Lima
 
-sudo apt install certbot python3-certbot-apache -y
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=miserver
+DB_USER=miserver
+DB_PASS=${PANEL_DB_PASS}
 
-sudo sed -i 's/^bind-address.*$/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
-sudo sed -i 's/^display_errors = .*/display_errors = On/' /etc/php/8.3/apache2/php.ini
-sudo sed -i 's/^#PasswordAuthentication.*$/PasswordAuthentication yes/' /etc/ssh/sshd_config
+CTL_PATH=/usr/local/sbin/miserver-ctl
+BACKUP_DIR=/var/backups/miserver
+SESSION_PATH=/home/miserver/panel/var/sessions
+EOF
+chown miserver:miserver /home/miserver/panel/.env
+chmod 600 /home/miserver/panel/.env
 
-sudo apachectl restart
-sudo service ssh restart
-sudo systemctl restart mysql
+log "   Importando esquema de la base..."
+mysql -u miserver -p"${PANEL_DB_PASS}" miserver < /home/miserver/panel/res/miserver.sql
 
-echo -e '#!/bin/bash\n# Configuración\nBACKUP_DIR="/root/miserver/backups"\nDATE=$(date +%F)\n# Crear directorio de backups si no existe\nmkdir -p $BACKUP_DIR\n# Obtener lista de usuarios en /home (excluir root y cuentas del sistema)\nusers=$(ls /home | grep -Ev "root|lost\+found")\n# Iterar sobre cada usuario y hacer el backup\nfor user in $users; do\n    tar -czvf $BACKUP_DIR/$user-backup-$DATE.tar.gz /home/$user\ndone\n# Eliminar backups antiguos (opcional)\nfind $BACKUP_DIR -type f -name "*.tar.gz" -mtime +7 -exec rm {} \;' > /root/backup_homes.sh
+# ---------------------------------------------------------------------------
+log "6/9 Instalando wrapper privilegiado + sudoers."
+# ---------------------------------------------------------------------------
+install -m 0755 /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl
 
-chmod +x /root/backup_homes.sh
+cat > /etc/sudoers.d/miserver <<'EOF'
+miserver ALL=(root) NOPASSWD: /usr/local/sbin/miserver-ctl
+Defaults!/usr/local/sbin/miserver-ctl !requiretty
+EOF
+chmod 440 /etc/sudoers.d/miserver
+visudo -cf /etc/sudoers.d/miserver >/dev/null 2>&1 && echo "   sudoers ok"
 
+log "   Creando cuenta admin y vhost principal del panel..."
+su - miserver -s /bin/bash -c \
+  "cd /home/miserver/panel && php cli.php init --user=${ADMIN_USER} --domain=${PANEL_HOST} --pass='${ADMIN_PASS}'" \
+  && echo "   admin creado" || echo "   ATENCIÓN: no se pudo crear el admin (revisa arriba)"
 
-echo -e '#!/bin/bash\n# Directorio donde se guardarán los backups\nBACKUP_DIR="/root/miserver/backups"\n# Credenciales de MySQL\nMYSQL_USER="tu_usuario"\nMYSQL_PASSWORD="tu_contraseña"\n\n# Crear el directorio de backups si no existe\nmkdir -p ${BACKUP_DIR}\n\n# Obtener la lista de todas las bases de datos\n\ndatabases=$(mysql -e "SHOW DATABASES;" | tr -d "| " | grep -v Database)\n# Realizar un backup de cada base de datos\nfor db in $databases; do\n  if [[ "$db" != "information_schema" && "$db" != "performance_schema" && "$db" != "mysql" && "$db" != "sys" ]]; then\n    echo "Respaldando la base de datos: $db"\n    mysqldump --databases $db | gzip > ${BACKUP_DIR}/${db}-backup-$(date +%F).sql.gz\n  fi\ndone\n\n# Eliminar los backups que tengan más de 7 días\nfind ${BACKUP_DIR} -type f -name "*.sql.gz" -mtime +7 -exec rm {} \;' > /root/backup_databases.sh
+# ---------------------------------------------------------------------------
+log "7/9 Creando vhost Apache del panel (ServerName: ${PANEL_HOST})."
+# ---------------------------------------------------------------------------
+# Deja de usar el servidor de desarrollo php -S si existía un servicio previo
+systemctl disable --now miserver.service >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/miserver.service
+systemctl daemon-reload >/dev/null 2>&1 || true
 
-chmod +x /root/backup_databases.sh
+cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
+<VirtualHost *:80>
+  ServerName $PANEL_HOST
+  ServerAlias www.$PANEL_HOST
+  DocumentRoot /home/miserver/panel
 
+  <Directory /home/miserver/panel>
+    Options -Indexes
+    AllowOverride None
+    Require all granted
+    FallbackResource /index.php
+  </Directory>
 
+  <IfModule mpm_itk_module>
+    AssignUserID miserver miserver
+  </IfModule>
 
-TEMP_CRON=$(mktemp)
-echo -e "0 0 * * * /root/backup_homes.sh >> /root/backup_databases.log 2>&1\n0 0 * * * /root/backup_databases.sh >> /root/backup_homes.log 2>&1" > "$TEMP_CRON"
-sudo crontab -u root "$TEMP_CRON"
-rm -f "$TEMP_CRON"
+  <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
+    Require all denied
+  </LocationMatch>
+  <FilesMatch "\.(sql|md|sh|example|bak|swp)$">
+    Require all denied
+  </FilesMatch>
+
+  <IfModule mod_php.c>
+    php_admin_value upload_max_filesize 64M
+    php_admin_value post_max_size 80M
+    php_admin_value memory_limit 128M
+    php_admin_value display_errors Off
+  </IfModule>
+
+  ErrorLog \${APACHE_LOG_DIR}/miserver-panel-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-panel-access.log combined
+</VirtualHost>
+APACHE
+chmod 644 "/etc/apache2/sites-available/${PANEL_HOST}.conf"
+a2ensite "${PANEL_HOST}.conf" >/dev/null 2>&1 || true
+apache2ctl -t >/dev/null && systemctl reload apache2 || exit 1
+
+# ---------------------------------------------------------------------------
+log "8/9 Preparando directorio de backups (manuales, desde el panel)."
+# ---------------------------------------------------------------------------
+install -d -o root -g root -m 0700 /var/backups/miserver
+
+# ---------------------------------------------------------------------------
+log "9/9 Resumen final."
+# ---------------------------------------------------------------------------
+cat <<EOF
+
+═══════════════════════════════════════════════════════════════════
+  Panel "Mi Server" instalado.
+
+  URL del panel : http://${PANEL_HOST}  (si apuntas el DNS, habilita SSL desde
+                  Configuración → emite el certificado con 'DNS' y 'SSL')
+
+  Admin         : ${ADMIN_USER}  /  ${ADMIN_PASS}
+
+  Notas:
+   * Abre los puertos en el firewall si usas ufw/os-security:
+       ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp
+       ufw allow 21/tcp; ufw allow 10000:10100/tcp (FTP pasivo)
+   * El dominio ${PANEL_HOST} apunta al PANEL (Apache + mod_mpm_itk como
+     usuario 'miserver'). Los sitios de las cuentas se crean desde el panel
+     con sus propios dominios.
+   * Crea cuentas/dominios desde el panel; cada cuenta tendrá su
+     usuario Linux, vhost Apache y usuario MySQL propios.
+   * Los backups se hacen manualmente desde el panel (Inicio → Crear backup)
+     y guardan homes + bases de datos en /var/backups/miserver.
+   * Guarda esta salida: si pierdes el .env perderás acceso a la BD.
+═══════════════════════════════════════════════════════════════════
+EOF

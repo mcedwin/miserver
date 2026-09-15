@@ -1,0 +1,332 @@
+#!/bin/bash
+# =============================================================================
+# miserver-ctl — wrapper privilegiado para el panel Mi Server
+#
+# Se instala en /usr/local/sbin/miserver-ctl (root:root, 0755).
+# El panel (usuario 'miserver') SOLO puede ejecutar ESTE script via sudo
+# (ver /etc/sudoers.d/miserver), nunca comandos arbitrarios.
+#
+# Seguridad:
+#  * Cada argumento se valida contra listas blancas estrictas.
+#  * No hay "comando libre" ni uso de eval; las opciones del sistema
+#    (Apache/MySQL/certbot) se llaman con nombres fijos.
+#  * La salida es breve y las operaciones se registran en /var/log/miserver.
+# =============================================================================
+set -euo pipefail
+
+LOG_DIR=/var/log/miserver
+mkdir -p "$LOG_DIR"
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG_DIR/ops.log"; }
+die() { echo "error: $*" >&2; exit 2; }
+
+[ "$#" -ge 1 ] || die "uso: miserver-ctl <comando> [args]"
+cmd="$1"; shift
+
+# -----------------------------------------------------------------------------
+# Validadores (listas blancas)
+# -----------------------------------------------------------------------------
+re_user='^[a-z_][a-z0-9_-]{1,31}$'
+re_dom='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$'
+re_name='^[a-z0-9_]{1,64}$'
+re_pass='^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:,.<>?~]{8,72}$'
+
+vuser() { [ $# -ge 1 ] && [[ "$1" =~ $re_user ]] || die "usuario no valido"; }
+vdom()  { [ $# -ge 1 ] && [[ "$1" =~ $re_dom ]]  || die "dominio no valido"; }
+vname() { [ $# -ge 1 ] && [[ "$1" =~ $re_name ]] || die "nombre no valido"; }
+vpass() { [ $# -ge 1 ] && [[ "$1" =~ $re_pass ]] || die "contrasena con caracteres no permitidos"; }
+
+# Ruta relativa dentro del home: sin absolutas, sin '..'
+vrel() {
+  local r="$1"
+  [ -n "$r" ] || die "ruta vacia"
+  [[ "$r" != /* ]] || die "ruta absoluta no permitida"
+  [[ "$r" != *'..'* ]] || die "'..' no permitido"
+  [[ "$r" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]{0,254}$ ]] || die "ruta no valida"
+}
+
+fs_full() { echo "/home/$1/$2"; }
+
+apache_reload() {
+  apache2ctl -t >/dev/null 2>&1 || die "configuracion apache invalida"
+  systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
+}
+
+vhost_conf() { # $1=usuario $2=dominio $3=folder
+  local u="$1" d="$2" f="$3"
+  cat > "/etc/apache2/sites-available/$d.conf" <<EOF
+<VirtualHost *:80>
+  ServerAdmin webmaster@$d
+  ServerName $d
+  ServerAlias www.$d
+  DocumentRoot /home/$u/$f
+  <Directory /home/$u/$f>
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Require all granted
+  </Directory>
+  AssignUserID $u $u
+  ErrorLog \${APACHE_LOG_DIR}/$u-error.log
+  CustomLog \${APACHE_LOG_DIR}/$u-access.log combined
+</VirtualHost>
+EOF
+  chmod 644 "/etc/apache2/sites-available/$d.conf"
+  ln -sf "/etc/apache2/sites-available/$d.conf" "/etc/apache2/sites-enabled/$d.conf"
+}
+
+# ¿El vhost $1 es el del panel (DocumentRoot=/home/miserver/panel)?
+is_panel_vhost() {
+  [ -f "/etc/apache2/sites-available/$1.conf" ] \
+    && grep -q '/home/miserver/panel' "/etc/apache2/sites-available/$1.conf"
+}
+
+# Garantiza un vhost para $d; si ya existe (p.ej. el del panel), NO lo pisa.
+vhost_ensure() { # $1=usuario $2=dominio $3=folder
+  local u="$1" d="$2" f="$3"
+  if [ -f "/etc/apache2/sites-available/$d.conf" ]; then
+    echo "vhost de $d ya existe (se respeta)"
+    return
+  fi
+  vhost_conf "$u" "$d" "$f"
+}
+
+# MySQL por socket (el wrapper corre como root durante la instalación)
+msql() { mysql --protocol=socket "$@"; }
+
+# -----------------------------------------------------------------------------
+# Comandos
+# -----------------------------------------------------------------------------
+case "$cmd" in
+  ping)
+    echo ok
+    ;;
+
+  # --- Cuentas ---------------------------------------------------------------
+  user:add)
+    [ $# -ge 3 ] || die "user:add <usuario> <pass> <dominio>"
+    u="$1"; p="$2"; d="$3"
+    vuser "$u"; vpass "$p"; vdom "$d"
+    log "user:add $u $d"
+    id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
+    printf '%s:%s\n' "$u" "$p" | chpasswd
+    mkdir -p "/home/$u/public_html"
+    [ -f "/home/$u/public_html/index.html" ] || printf '<h1>Bienvenido a %s</h1>\n' "$d" > "/home/$u/public_html/index.html"
+    chown -R "$u:$u" "/home/$u"
+    vhost_ensure "$u" "$d" "public_html"
+    msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$p'; CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;"
+    apache_reload
+    echo ok
+    ;;
+
+  user:setpw)
+    [ $# -ge 2 ] || die "user:setpw <usuario> <pass>"
+    u="$1"; p="$2"; vuser "$u"; vpass "$p"
+    log "user:setpw $u"
+    printf '%s:%s\n' "$u" "$p" | chpasswd
+    msql -e "ALTER USER '$u'@'localhost' IDENTIFIED BY '$p'; ALTER USER '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;" 2>/dev/null || true
+    echo ok
+    ;;
+
+  user:del)
+    [ $# -ge 1 ] || die "user:del <usuario>"
+    u="$1"; vuser "$u"
+    [ "$u" != "miserver" ] || die "no se puede eliminar la cuenta del panel"
+    log "user:del $u"
+    for f in /etc/apache2/sites-available/*.conf; do
+      [ -f "$f" ] || continue
+      grep -q "AssignUserID $u " "$f" 2>/dev/null || continue
+      n="$(basename "$f")"
+      a2dissite "$n" >/dev/null 2>&1 || true
+      rm -f "$f" "/etc/apache2/sites-enabled/$n"
+    done
+    userdel -r "$u" 2>/dev/null || true
+    msql -e "DROP USER IF EXISTS '$u'@'localhost'; DROP USER IF EXISTS '$u'@'%'; FLUSH PRIVILEGES;" 2>/dev/null || true
+    apache_reload
+    echo ok
+    ;;
+
+  # --- Vhosts / SSL ----------------------------------------------------------
+  vhost:add)
+    [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder>"
+    u="$1"; d="$2"; f="$3"; vuser "$u"; vdom "$d"; vrel "$f"
+    log "vhost:add $u $d $f"
+    mkdir -p "/home/$u/$f"
+    [ -f "/home/$u/$f/index.html" ] || printf '<h1>%s</h1>\n' "$d" > "/home/$u/$f/index.html"
+    chown -R "$u:$u" "/home/$u/$f"
+    vhost_ensure "$u" "$d" "$f"
+    apache_reload
+    echo ok
+    ;;
+
+  vhost:del)
+    [ $# -ge 1 ] || die "vhost:del <dominio>"
+    d="$1"; vdom "$d"
+    is_panel_vhost "$d" && die "es el vhost del panel, no se elimina"
+    log "vhost:del $d"
+    a2dissite "$d.conf" >/dev/null 2>&1 || true
+    rm -f "/etc/apache2/sites-available/$d.conf" "/etc/apache2/sites-enabled/$d.conf"
+    if [ -d "/etc/letsencrypt/live/$d" ]; then
+      certbot revoke --cert-path "/etc/letsencrypt/live/$d/fullchain.pem" --delete-after-revoke >/dev/null 2>&1 || true
+    fi
+    apache_reload
+    echo ok
+    ;;
+
+  vhost:toggle)
+    [ $# -ge 2 ] || die "vhost:toggle <dominio> on|off"
+    d="$1"; s="$2"; vdom "$d"
+    [ "$s" = on ] || [ "$s" = off ] || die "estado debe ser on|off"
+    is_panel_vhost "$d" && die "el vhost del panel no se puede desactivar"
+    log "vhost:toggle $d $s"
+    if [ "$s" = on ]; then a2ensite "$d.conf" >/dev/null 2>&1 || true; else a2dissite "$d.conf" >/dev/null 2>&1 || true; fi
+    apache_reload
+    echo ok
+    ;;
+
+  cert:issue)
+    [ $# -ge 1 ] || die "cert:issue <dominio> [email]"
+    d="$1"; vdom "$d"
+    email="${2:-}"
+    log "cert:issue $d"
+    if [ -n "$email" ]; then
+      certbot --apache --non-interactive --agree-tos -m "$email" -d "$d"
+    else
+      certbot --apache --non-interactive --agree-tos --register-unsafely-without-email -d "$d"
+    fi
+    apache_reload
+    echo ok
+    ;;
+
+  # --- Bases de datos --------------------------------------------------------
+  db:add)    [ $# -ge 1 ] || die "db:add <nombre>"; vname "$1"; log "db:add $1"
+             msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4"; echo ok ;;
+  db:del)    [ $# -ge 1 ] || die "db:del <nombre>"; vname "$1"; log "db:del $1"
+             msql -e "DROP DATABASE IF EXISTS \`$1\`"; echo ok ;;
+
+  dbu:add)   [ $# -ge 2 ] || die "dbu:add <usuario> <pass>"; vname "$1"; vpass "$2"; log "dbu:add $1"
+             msql -e "CREATE USER IF NOT EXISTS \`$1\`@'localhost' IDENTIFIED BY '$2'; CREATE USER IF NOT EXISTS \`$1\`@'%' IDENTIFIED BY '$2'; FLUSH PRIVILEGES;"
+             echo ok ;;
+  dbu:setpw) [ $# -ge 2 ] || die "dbu:setpw <usuario> <pass>"; vname "$1"; vpass "$2"; log "dbu:setpw $1"
+             msql -e "ALTER USER \`$1\`@'localhost' IDENTIFIED BY '$2'; ALTER USER \`$1\`@'%' IDENTIFIED BY '$2'; FLUSH PRIVILEGES;"
+             echo ok ;;
+  dbu:del)   [ $# -ge 1 ] || die "dbu:del <usuario>"; vname "$1"; log "dbu:del $1"
+             msql -e "DROP USER IF EXISTS \`$1\`@'localhost', \`$1\`@'%'; FLUSH PRIVILEGES;"
+             echo ok ;;
+
+  db:grant)  [ $# -ge 2 ] || die "db:grant <base> <usuario>"; vname "$1"; vname "$2"; log "db:grant $2 -> $1"
+             msql -e "GRANT ALL PRIVILEGES ON \`$1\`.* TO \`$2\`@'localhost', \`$2\`@'%'; FLUSH PRIVILEGES;"
+             echo ok ;;
+  db:revoke) [ $# -ge 2 ] || die "db:revoke <base> <usuario>"; vname "$1"; vname "$2"; log "db:revoke $2 -> $1"
+             msql -e "REVOKE ALL PRIVILEGES ON \`$1\`.* FROM \`$2\`@'localhost', \`$2\`@'%'; FLUSH PRIVILEGES;"
+             echo ok ;;
+
+  # --- Cron ------------------------------------------------------------------
+  cron:show)
+    [ $# -ge 1 ] || die "cron:show <usuario>"
+    vuser "$1"
+    crontab -u "$1" -l 2>/dev/null || true
+    ;;
+
+  cron:set)
+    [ $# -ge 1 ] || die "cron:set <usuario>"
+    vuser "$1"; log "cron:set $1"
+    tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT
+    cat > "$tmp"
+    chmod 600 "$tmp"
+    crontab -u "$1" "$tmp"
+    echo ok
+    ;;
+
+  # --- Archivos --------------------------------------------------------------
+  fs:write)
+    [ $# -ge 2 ] || die "fs:write <usuario> <ruta-relativa>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    full="$(fs_full "$u" "$r")"
+    mkdir -p "$(dirname "$full")"
+    cat > "$full"          # contenido por stdin
+    chown "$u:$u" "$full"
+    chmod 644 "$full"
+    echo ok
+    ;;
+
+  fs:put)
+    [ $# -ge 3 ] || die "fs:put <usuario> <ruta-relativa> <archivo-temporal>"
+    u="$1"; r="$2"; src="$3"; vuser "$u"; vrel "$r"
+    [ -f "$src" ] || die "archivo temporal no existe"
+    full="$(fs_full "$u" "$r")"
+    mkdir -p "$(dirname "$full")"
+    mv "$src" "$full"
+    chown "$u:$u" "$full"
+    chmod 644 "$full"
+    echo ok
+    ;;
+
+  fs:mkdir)
+    [ $# -ge 2 ] || die "fs:mkdir <usuario> <ruta-relativa>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    mkdir -p "$(fs_full "$u" "$r")"
+    chown "$u:$u" "$(fs_full "$u" "$r")"
+    echo ok
+    ;;
+
+  fs:rm)
+    [ $# -ge 2 ] || die "fs:rm <usuario> <ruta-relativa>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    full="$(fs_full "$u" "$r")"
+    [ -e "$full" ] || die "no existe"
+    if [ -d "$full" ]; then
+      rmdir "$full" 2>/dev/null || die "directorio no vacio (borra antes su contenido)"
+    else
+      rm -f "$full"
+    fi
+    echo ok
+    ;;
+
+  sys:info)
+    df -Pk / 2>/dev/null | tail -1 | awk '{print "disk|"$2"|"$3"|"$4"|"$5}'
+    free -m | awk '/Mem:/{print "mem|"$2"|"$3"|"$4}'
+    awk '{print "load|"$1"|"$2"|"$3}' /proc/loadavg 2>/dev/null || true
+    for h in /home/*/; do
+      [ -d "$h" ] || continue
+      name="$(basename "$h")"
+      [ "$name" = "miserver" ] && continue
+      size="$(du -sk "$h" 2>/dev/null | cut -f1 || echo 0)"
+      printf 'home|%s|%s\n' "$name" "$size"
+    done
+    msql -N -B -e "SELECT table_schema, ROUND(SUM(data_length+index_length)/1024), COUNT(DISTINCT table_name) FROM information_schema.tables GROUP BY table_schema" 2>/dev/null | \
+      while IFS=$'\t' read -r db size tbl; do printf 'db|%s|%s|%s\n' "$db" "${size:-0}" "${tbl:-0}"; done
+    ;;
+
+  backup:list)
+    dir="/var/backups/miserver"
+    [ -d "$dir" ] || { echo "file|0|-|sin-backups"; exit 0; }
+    find "$dir" -maxdepth 1 -type f -printf "file|%s|%TY-%Tm-%Td %TH:%TM|%f\n" | sort -k4
+    ;;
+
+  # --- Backups manuales (un solo respaldo: homes + bases de datos) -----------
+  backup:run)
+    save_dir="${BACKUP_DIR:-/var/backups/miserver}"
+    mkdir -p "$save_dir"
+    ts="$(date +%Y%m%d-%H%M%S)"
+    prefix="$save_dir/bk-${ts}"
+    log "backup:run -> $prefix"
+    [ -d "$save_dir" ] || { echo "no existe $save_dir"; exit 0; }
+    # homes: archivos + carpetas de todos los usuarios (excepto el panel)
+    tar --acls --numeric-owner -czf "${prefix}-homes.tar.gz" -C /home --exclude=./miserver . 2>/dev/null || true
+    # bases de datos de usuarios (excluye las internas de MySQL)
+    dbs=""
+    while IFS= read -r db; do
+      case "$db" in information_schema|performance_schema|mysql|sys) continue;; esac
+      dbs="$dbs $db"
+    done < <(mysql --batch --skip-column-names -e 'SHOW DATABASES' 2>/dev/null || true)
+    if [ -n "$dbs" ]; then
+      mysqldump --single-transaction --routines --triggers $dbs 2>/dev/null | gzip -9 > "${prefix}-db.sql.gz"
+    fi
+    echo "bk-${ts}"
+    ls -1 "${prefix}"* | sed "s#^$save_dir/##"
+    ;;
+
+  *)
+    die "comando desconocido: $cmd"
+    ;;
+esac
