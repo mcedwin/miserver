@@ -29,6 +29,10 @@ PANEL_HOST="${1:-panel.local}"
 ADMIN_USER="${2:-admin}"
 ADMIN_PASS="${3:-}"
 
+# Repositorio del panel (usado si el instalador se ejecuta sin el código al lado).
+PANEL_GIT_URL="${PANEL_GIT_URL:-https://github.com/mcedwin/miserver.git}"
+PANEL_GIT_BRANCH="${PANEL_GIT_BRANCH:-main}"
+
 [ -z "$ADMIN_PASS" ] && ADMIN_PASS="$(openssl rand -hex 8)"
 [ ${#ADMIN_PASS} -ge 8 ] || { echo "La contraseña del admin debe tener 8+ caracteres." >&2; exit 1; }
 
@@ -43,7 +47,7 @@ apt-get upgrade -y
 apt-get install -y --no-install-recommends \
   apache2 libapache2-mod-php apache2-dev build-essential libcap-dev php-cli php-mysql php-mbstring \
   php-xml php-curl mysql-server mysql-client certbot python3-certbot-apache \
-  vsftpd curl wget unzip acl rsync ca-certificates
+  vsftpd curl wget unzip acl rsync ca-certificates git
 
 # MPM prefork (necesario por mod_php) + mod_ruid2 (usuario por vhost) + rewrite + ssl
 a2dismod -f mpm_worker mpm_event >/dev/null 2>&1 || true
@@ -113,13 +117,25 @@ log "4/9 Instalando código del panel en /home/miserver/panel."
 install -d -o miserver -g miserver /home/miserver/panel
 if [ ! -f /home/miserver/panel/index.php ]; then
   SRC="$(cd "$(dirname "$0")" && pwd)"
-  echo "   copiando código desde: $SRC"
-  cp -rp "$SRC"/. /home/miserver/panel/
-  # en producción se recomienda: git clone <repo> /home/miserver/panel
+  if [ -f "$SRC/index.php" ] && [ -f "$SRC/res/miserver.sql" ]; then
+    echo "   copiando código desde: $SRC"
+    cp -rp "$SRC"/. /home/miserver/panel/
+  else
+    echo "   clonando panel desde: $PANEL_GIT_URL ($PANEL_GIT_BRANCH)"
+    git clone -q -b "$PANEL_GIT_BRANCH" "$PANEL_GIT_URL" /home/miserver/panel
+    rm -rf /home/miserver/panel/.git
+  fi
 elif [ ! -f /home/miserver/panel/res/miserver.sql ]; then
   SRC="$(cd "$(dirname "$0")" && pwd)"
-  echo "   instalación previa incompleta: copiando res/ (esquema SQL)"
-  cp -rp "$SRC"/res /home/miserver/panel/
+  if [ -f "$SRC/res/miserver.sql" ]; then
+    echo "   instalación previa incompleta: copiando res/ (esquema SQL)"
+    cp -rp "$SRC"/res /home/miserver/panel/
+  else
+    echo "   instalación previa incompleta: clonando res/ desde $PANEL_GIT_URL"
+    git clone -q -b "$PANEL_GIT_BRANCH" --depth 1 "$PANEL_GIT_URL" /tmp/panel-src
+    cp -rp /tmp/panel-src/res /home/miserver/panel/
+    rm -rf /tmp/panel-src
+  fi
 fi
 for d in var/sessions var/cache var/log; do install -d -o miserver -g miserver "/home/miserver/panel/$d"; done
 chown -R miserver:miserver /home/miserver/panel
