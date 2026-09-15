@@ -29,7 +29,7 @@ PANEL_HOST="${1:-panel.local}"
 ADMIN_USER="${2:-admin}"
 ADMIN_PASS="${3:-}"
 
-[ -z "$ADMIN_PASS" ] && ADMIN_PASS="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 16)"
+[ -z "$ADMIN_PASS" ] && ADMIN_PASS="$(openssl rand -hex 8)"
 [ ${#ADMIN_PASS} -ge 8 ] || { echo "La contraseña del admin debe tener 8+ caracteres." >&2; exit 1; }
 
 export DEBIAN_FRONTEND=noninteractive
@@ -94,11 +94,13 @@ mysqladmin ping >/dev/null 2>&1 || {
   exit 1
 }
 
-PANEL_DB_PASS="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)"
+# openssl rand (no usar pipe: tr|head recibe SIGPIPE y con pipefail aborta en silencio).
+PANEL_DB_PASS="$(openssl rand -hex 12)"
 # MySQL 8.0 (Ubuntu 24.04) rechaza GRANT sobre information_schema: no se otorga.
 mysql <<SQL
 CREATE DATABASE IF NOT EXISTS miserver CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS 'miserver'@'localhost' IDENTIFIED BY '${PANEL_DB_PASS}';
+ALTER USER 'miserver'@'localhost' IDENTIFIED BY '${PANEL_DB_PASS}';
 GRANT ALL PRIVILEGES ON miserver.* TO 'miserver'@'localhost';
 FLUSH PRIVILEGES;
 SQL
@@ -125,7 +127,7 @@ log "5/9 Creando .env del panel."
 # ---------------------------------------------------------------------------
 tee /home/miserver/panel/.env > /dev/null <<EOF
 APP_BASEURL=/
-APP_SECRET=$(tr -dc 'a-zA-Z0-9!@#$%^&*()_+-' < /dev/urandom | head -c 48)
+APP_SECRET=$(openssl rand -hex 24)
 APP_TIMEZONE=America/Lima
 
 DB_HOST=127.0.0.1
