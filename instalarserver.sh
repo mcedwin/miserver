@@ -85,7 +85,14 @@ fi
 # ---------------------------------------------------------------------------
 log "3/9 Configurando MySQL (panel: base miserver + credenciales)."
 # ---------------------------------------------------------------------------
-systemctl enable --now mysql 2>/dev/null || service mysql start || true
+# Arranca MySQL y espera a que responda (el primer arranque de MySQL 8 puede tardar).
+systemctl start mysql 2>/dev/null || service mysql start || true
+systemctl enable mysql >/dev/null 2>&1 || true
+for _i in $(seq 1 45); do mysqladmin ping >/dev/null 2>&1 && break; sleep 2; done
+mysqladmin ping >/dev/null 2>&1 || {
+  echo "ERROR: MySQL no responde. Revisa: systemctl status mysql; tail -50 /var/log/mysql/error.log" >&2
+  exit 1
+}
 
 PANEL_DB_PASS="$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)"
 # MySQL 8.0 (Ubuntu 24.04) rechaza GRANT sobre information_schema: no se otorga.
