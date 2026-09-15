@@ -33,17 +33,7 @@ re_pass='^[A-Za-z0-9!@#$%^&*()_+\-=\[\]{};:,.<>?~]{8,72}$'
 vuser() { [ $# -ge 1 ] && [[ "$1" =~ $re_user ]] || die "usuario no valido"; }
 vdom()  { [ $# -ge 1 ] && [[ "$1" =~ $re_dom ]]  || die "dominio no valido"; }
 vname() { [ $# -ge 1 ] && [[ "$1" =~ $re_name ]] || die "nombre no valido"; }
-vpass() {
-    local pass="$1"
-
-    if (( ${#pass} < 8 || ${#pass} > 72 )); then
-        die "La contraseña debe tener entre 8 y 72 caracteres"
-    fi
-
-    if [[ "$pass" =~ [[:space:]] ]]; then
-        die "La contraseña no puede contener espacios"
-    fi
-}
+vpass() { [ $# -ge 1 ] && [[ "$1" =~ $re_pass ]] || die "contrasena con caracteres no permitidos"; }
 
 # Ruta relativa dentro del home: sin absolutas, sin '..'
 vrel() {
@@ -120,6 +110,11 @@ msql() { mysql --protocol=socket "$@"; }
 case "$cmd" in
   ping)
     echo ok
+    ;;
+
+  check:pass)
+    [ $# -ge 1 ] || die "check:pass <pass>"
+    vpass "$1" && echo ok
     ;;
 
   # --- Cuentas ---------------------------------------------------------------
