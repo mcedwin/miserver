@@ -92,7 +92,8 @@ function newwebfolder($user,$name,$folder,$domain)
 DocumentRoot /home/{$user}/{$folder}
 ServerName www.{$domain}
 ServerAlias {$domain}
-AssignUserID {$user} {$user}
+RMode config
+RUidGid {$user} {$user}
 <Directory /home/{$user}/{$folder}/>
 Options Indexes FollowSymLinks MultiViews
 AllowOverride All

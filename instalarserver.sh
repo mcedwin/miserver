@@ -10,14 +10,14 @@
 #
 # Qué hace:
 #   1) Actualiza el sistema e instala: Apache2, PHP+CLI, MySQL, certbot,
-#      vsftpd, libapache2-mod-mpm-itk y utilidades.
+#      vsftpd, mod_ruid2 (compilado desde fuente en 24.04) y utilidades.
 #   2) Crea el usuario 'miserver' (dueño del panel y del proceso web).
 #   3) Configura MySQL: base 'miserver' + usuario propio del panel.
 #   4) Instala el código del panel en /home/miserver/panel.
 #   5) Crea el archivo .env con las credenciales de la BD del panel.
 #   6) Instala el wrapper privilegiado /usr/local/sbin/miserver-ctl + sudoers.
 #   7) Crea el vhost Apache del panel (ServerName=$PANEL_HOST en 80/443) que
-#      corre como usuario 'miserver' (mod_mpm_itk) — sin php -S ni puerto 8004.
+#      corre como usuario 'miserver' (mod_ruid2) — sin php -S ni puerto 8004.
 #   8) Prepara /var/backups/miserver y el comando backup:run del wrapper
 #      (backups MANUALES: archivos + carpetas + bases de datos, desde el panel).
 # =============================================================================
@@ -41,14 +41,36 @@ log "1/9 Actualizando sistema e instalando paquetes..."
 apt-get update -y
 apt-get upgrade -y
 apt-get install -y --no-install-recommends \
-  apache2 libapache2-mod-php libapache2-mod-mpm-itk php-cli php-mysql php-mbstring \
+  apache2 libapache2-mod-php apache2-dev build-essential libcap-dev php-cli php-mysql php-mbstring \
   php-xml php-curl mysql-server mysql-client certbot python3-certbot-apache \
   vsftpd curl wget unzip acl rsync ca-certificates
 
-# MPM itk (usuario por vhost) + rewrite + ssl + php
-a2dismod -f mpm_prefork mpm_worker mpm_event >/dev/null 2>&1 || true
-a2enmod -f mpm_itk >/dev/null 2>&1 || true
+# MPM prefork (necesario por mod_php) + mod_ruid2 (usuario por vhost) + rewrite + ssl
+a2dismod -f mpm_worker mpm_event >/dev/null 2>&1 || true
+a2enmod -f mpm_prefork >/dev/null 2>&1 || true
 a2enmod rewrite headers ssl >/dev/null 2>&1 || true
+
+# mod_ruid2: el paquete .deb solo existe hasta Ubuntu 22.04; en 24.04 (noble)
+# se compila desde fuente (mismo upstream 0.9.8 que usa el paquete de Debian).
+if ! apt-get install -y --no-install-recommends libapache2-mod-ruid2 >/dev/null 2>&1; then
+  log "   libapache2-mod-ruid2 no está en los repos (24.04); compilando desde fuente..."
+  ruid_tmp="$(mktemp -d)"
+  curl -fsSL https://github.com/mind04/mod-ruid2/archive/refs/heads/master.tar.gz -o "$ruid_tmp/mod-ruid2.tar.gz"
+  tar -xzf "$ruid_tmp/mod-ruid2.tar.gz" -C "$ruid_tmp"
+  if ( cd "$ruid_tmp"/mod-ruid2-master && apxs2 -i -c -l cap mod_ruid2.c ) \
+     && [ -f /usr/lib/apache2/modules/mod_ruid2.so ]; then
+    rm -rf "$ruid_tmp"
+  else
+    rm -rf "$ruid_tmp"
+    echo "ERROR: no se pudo compilar mod_ruid2." >&2
+    exit 1
+  fi
+fi
+if ! grep -q "ruid2_module" /etc/apache2/mods-available/ruid2.load 2>/dev/null; then
+  echo "LoadModule ruid2_module /usr/lib/apache2/modules/mod_ruid2.so" > /etc/apache2/mods-available/ruid2.load
+fi
+a2enmod -f ruid2 >/dev/null 2>&1 || true
+
 php_mod="$(ls /etc/apache2/mods-available/php*.load 2>/dev/null | sed 's#.*/##; s#\.load##' | head -1 || true)"
 [ -n "${php_mod:-}" ] && a2enmod -f "$php_mod" >/dev/null 2>&1 || true
 php -d opcache.enable_cli=1 -r 'echo "PHP ok\n";'
@@ -155,8 +177,9 @@ cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
     FallbackResource /index.php
   </Directory>
 
-  <IfModule mpm_itk_module>
-    AssignUserID miserver miserver
+  <IfModule mod_ruid2.c>
+    RMode config
+    RUidGid miserver miserver
   </IfModule>
 
   <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
@@ -203,7 +226,7 @@ cat <<EOF
    * Abre los puertos en el firewall si usas ufw/os-security:
        ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp
        ufw allow 21/tcp; ufw allow 10000:10100/tcp (FTP pasivo)
-   * El dominio ${PANEL_HOST} apunta al PANEL (Apache + mod_mpm_itk como
+   * El dominio ${PANEL_HOST} apunta al PANEL (Apache + mod_ruid2 como
      usuario 'miserver'). Los sitios de las cuentas se crean desde el panel
      con sus propios dominios.
    * Crea cuentas/dominios desde el panel; cada cuenta tendrá su

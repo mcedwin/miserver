@@ -4,10 +4,10 @@ Alternativa ligera a cPanel para gestionar un único servidor (una VPS / droplet
 cuentas, dominios + Apache vhosts, SSL (Let's Encrypt), bases de datos MySQL,
 cron del usuario y un gestor de archivos, todo desde un navegador.
 
-**Stack**: PHP 8 puro (sin framework) + MySQL + Apache (mod_mpm_itk) + Certbot.
+**Stack**: PHP 8 puro (sin framework) + MySQL + Apache (mod_ruid2) + Certbot.
 El panel se sirve en su propio vhost Apache (ServerName dedicado, puertos 80/443)
-corriendo como usuario **no privilegiado** (`miserver`, vía `AssignUserID` del
-mod_mpm_itk) y delega cada operación privilegiada en un wrapper validado
+corriendo como usuario **no privilegiado** (`miserver`, vía `RUidGid` del
+mod_ruid2) y delega cada operación privilegiada en un wrapper validado
 (`miserver-ctl`) que se ejecuta vía `sudo`.
 
 ---
@@ -54,8 +54,14 @@ bash instalarserver.sh panel.tudominio.com admin CLAVE_SEGURA
 
 Al terminar se mostrará la URL del panel (`http://panel.tudominio.com`), las
 credenciales del admin, y se habrán ejecutado automáticamente: Apache + vhosts
-por usuario (mod_mpm_itk), el vhost del panel (como `miserver`), MySQL,
+por usuario (mod_ruid2), el vhost del panel (como `miserver`), MySQL,
 certificados Let's Encrypt y vsftpd.
+
+> **Nota (Ubuntu 24.04):** los paquetes `libapache2-mod-mpm-itk` y
+> `libapache2-mod-ruid2` no existen en los repos de noble. El instalador
+> intenta el `.deb` de `mod_ruid2` y, si no está, lo **compila desde fuente**
+> (upstream 0.9.8, el mismo que usa el paquete de Debian) con `apxs2`
+> (`apache2-dev` + `libcap-dev`). Los vhosts usan `RMode config` + `RUidGid`.
 
 ### Requisitos manuales
 

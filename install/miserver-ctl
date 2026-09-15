@@ -64,7 +64,10 @@ vhost_conf() { # $1=usuario $2=dominio $3=folder
     AllowOverride All
     Require all granted
   </Directory>
-  AssignUserID $u $u
+  <IfModule mod_ruid2.c>
+    RMode config
+    RUidGid $u $u
+  </IfModule>
   ErrorLog \${APACHE_LOG_DIR}/$u-error.log
   CustomLog \${APACHE_LOG_DIR}/$u-access.log combined
 </VirtualHost>
@@ -133,7 +136,7 @@ case "$cmd" in
     log "user:del $u"
     for f in /etc/apache2/sites-available/*.conf; do
       [ -f "$f" ] || continue
-      grep -q "AssignUserID $u " "$f" 2>/dev/null || continue
+      grep -q "RUidGid $u " "$f" 2>/dev/null || continue
       n="$(basename "$f")"
       a2dissite "$n" >/dev/null 2>&1 || true
       rm -f "$f" "/etc/apache2/sites-enabled/$n"
