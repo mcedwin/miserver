@@ -151,6 +151,8 @@ elif [ ! -f /home/miserver/panel/res/miserver.sql ]; then
     rm -rf /tmp/panel-src
   fi
 fi
+echo "   limpieza: no se despliega core/ (panel antiguo) ni .git"
+rm -rf /home/miserver/panel/core /home/miserver/panel/.git
 for d in var/sessions var/cache var/log; do install -d -o miserver -g miserver "/home/miserver/panel/$d"; done
 chown -R miserver:miserver /home/miserver/panel
 chmod -R u+rwX,go-w /home/miserver/panel
