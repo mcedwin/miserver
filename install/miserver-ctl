@@ -242,8 +242,11 @@ case "$cmd" in
     ;;
 
   # --- Bases de datos --------------------------------------------------------
-  db:add)    [ $# -ge 1 ] || die "db:add <nombre>"; vname "$1"; log "db:add $1"
-             msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4"; echo ok ;;
+  db:add)    [ $# -ge 1 ] || die "db:add <nombre> [usuario-dueño]"; vname "$1"; log "db:add $1"
+             if [ $# -ge 2 ]; then vuser "$2"
+               msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4; GRANT ALL PRIVILEGES ON \`$1\`.* TO '$2'@'localhost', '$2'@'%'; FLUSH PRIVILEGES;"
+             else msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4"; fi
+             echo ok ;;
   db:del)    [ $# -ge 1 ] || die "db:del <nombre>"; vname "$1"; log "db:del $1"
              msql -e "DROP DATABASE IF EXISTS \`$1\`"; echo ok ;;
 
