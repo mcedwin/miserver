@@ -138,17 +138,26 @@ case "$cmd" in
 
   # --- Cuentas ---------------------------------------------------------------
   user:add)
-    [ $# -ge 3 ] || die "user:add <usuario> <pass> <dominio>"
+    [ $# -ge 3 ] || die "user:add <usuario> <pass> <dominio> [admin]"
     u="$1"; p="$2"; d="$3"
+    is_admin=0
+    [ $# -ge 4 ] && [ "$4" = "admin" ] && is_admin=1
     vuser "$u"; vpass "$p"; vdom "$d"
-    log "user:add $u $d"
+    log "user:add $u $d${is_admin:+ [admin]}"
     id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
     setpw_linux "$u" "$p"
     mkdir -p "/home/$u/public_html"
     [ -f "/home/$u/public_html/index.html" ] || printf '<h1>Bienvenido a %s</h1>\n' "$d" > "/home/$u/public_html/index.html"
     chown -R "$u:$u" "/home/$u"
     vhost_ensure "$u" "$d" "public_html"
-    msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$p'; CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;"
+    # Cuenta MySQL: localhost + remoto (%). Admin ve TODAS las BD; el resto
+    # solo las suyas con prefijo "$u"_ (GRANT por patrón, cubre las futuras).
+    esc=$(printf '%s' "$u" | sed 's/[_%]/\\&/g')
+    if [ "$is_admin" = 1 ]; then
+      msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$p'; CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$p'; GRANT ALL PRIVILEGES ON *.* TO '$u'@'localhost', '$u'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+    else
+      msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$p'; CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$p'; GRANT ALL PRIVILEGES ON \`${esc}\_%\`.* TO '$u'@'localhost', '$u'@'%'; FLUSH PRIVILEGES;"
+    fi
     apache_reload
     echo ok
     ;;

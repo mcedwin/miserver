@@ -62,7 +62,7 @@ function ctrl_setup_run(): void
     ]);
 
     // Crear cuenta linux + vhost + usuario MySQL (via wrapper privilegiado)
-    if ($dom = ctl_run(['user:add', $user, $pass, $domain])) {
+    if ($dom = ctl_run(['user:add', $user, $pass, $domain, 'admin'])) {
         if ($dom['exit'] !== 0) {
             respond(false, 'El usuario no se pudo crear en el sistema: ' . e($dom['out']));
         }

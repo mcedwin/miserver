@@ -81,7 +81,7 @@ try {
             cli_out('Admin creado en la BD: ' . $user . ' / ' . $domain);
 
             if (ctl_available()) {
-                $r = ctl_run(['user:add', $user, $opt['pass'], $domain]);
+                $r = ctl_run(['user:add', $user, $opt['pass'], $domain, 'admin']);
                 cli_out(trim($r['out']));
                 exit($r['exit']);
             }
@@ -94,12 +94,16 @@ try {
                 cli_out('Uso: php cli.php setup-linux --pass=NUEVACLAVE (tambien la cambia en MySQL)');
                 break;
             }
-            $u = db_one('SELECT u.user, u.domain FROM user u JOIN domain d ON d.user_id = u.id ORDER BY u.id LIMIT 1');
+            $u = db_one('SELECT u.user, u.domain, u.role FROM user u JOIN domain d ON d.user_id = u.id ORDER BY u.id LIMIT 1');
             if (!$u) {
                 cli_out('No hay admin en la BD.');
                 break;
             }
-            $r = ctl_run(['user:add', $u['user'], $opt['pass'], $u['domain']]);
+            $args = ['user:add', $u['user'], $opt['pass'], $u['domain']];
+            if (($u['role'] ?? '') === 'admin') {
+                $args[] = 'admin';
+            }
+            $r = ctl_run($args);
             cli_out('exit=' . $r['exit'] . ' -> ' . trim($r['out']));
             cli_out('Recuerda actualizar la contrasena en el panel (ajustes) si quieres que coincidan.');
             break;
