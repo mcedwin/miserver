@@ -97,7 +97,12 @@ fchown() { # $1+=rutas
 }
 
 apache_reload() {
-  apache2ctl -t >/dev/null 2>&1 || die "configuracion apache invalida"
+  local out
+  if ! out="$(apache2ctl -t 2>&1)"; then
+    echo "error: configuracion apache invalida" >&2
+    printf '%s\n' "$out" | sed 's/^/  /' >&2
+    exit 2
+  fi
   systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
 }
 
@@ -110,7 +115,7 @@ vhost_conf() { # $1=usuario $2=dominio $3=folder
   ServerAlias www.$d
   DocumentRoot "/home/$u/$f"
   <Directory "/home/$u/$f">
-    Options -Indexes FollowSymLinks
+    Options -Indexes +FollowSymLinks
     AllowOverride All
     Require all granted
   </Directory>
