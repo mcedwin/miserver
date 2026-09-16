@@ -25,7 +25,9 @@ function ctrl_domains_store(): void
     $u = require_login();
     csrf_check();
     $domain = require_match(RE_DOMAIN, strtolower(post('domain')), 'Dominio no válido.');
-    $folder = require_match(RE_FOLDER, post('folder', 'public_html') !== '' ? post('folder') : 'public_html', 'Carpeta no válida.');
+    $folder = trim(post('folder', '') ?? '');
+    $folder = $folder === '' ? $domain : $folder; // carpeta propia por dominio (evita chocar con public_html)
+    $folder = require_match(RE_FOLDER, $folder, 'Carpeta no válida.');
 
     if (db_one('SELECT id FROM domain WHERE domain = ?', [$domain])) {
         respond(false, 'Ese dominio ya está registrado.');

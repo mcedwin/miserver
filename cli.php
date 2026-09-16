@@ -88,6 +88,17 @@ try {
             cli_out('Aviso: el wrapper no está disponible; la cuenta Linux/MySQL hay que crearla manualmente (instalar miserver-ctl).');
             break;
 
+        case 'home-linux':
+            // Crea el public_html del primer usuario (admin) sin tocar contraseñas
+            $u = db_one('SELECT u.user FROM user u JOIN domain d ON d.user_id = u.id ORDER BY u.id LIMIT 1');
+            if (!$u) {
+                cli_out('No hay admin en la BD.');
+                break;
+            }
+            $r = ctl_run(['user:home', $u['user']]);
+            cli_out('exit=' . $r['exit'] . ' -> ' . trim($r['out']));
+            break;
+
         case 'setup-linux':
             // Reintento de la parte del sistema (cuenta Linux + vhost + usuario MySQL)
             if (empty($opt['pass'])) {
@@ -120,6 +131,7 @@ try {
             cli_out('  health                    estado del panel');
             cli_out('  init --user= X --domain= Y --pass= Z [--le-email=E]');
             cli_out('  setup-linux --pass= X     recrea cuenta Linux/MySQL del admin');
+            cli_out('  home-linux                crea el public_html del admin sin tocar claves');
             cli_out('  migrate                   adapta el esquema antiguo al nuevo');
             break;
     }

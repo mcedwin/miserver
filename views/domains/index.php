@@ -16,7 +16,7 @@
       </select>
     <?php endif; ?>
     <input class="form-control" name="domain" placeholder="ej: proyecto.com" required>
-    <input class="form-control" name="folder" placeholder="carpeta (default: public_html)">
+    <input class="form-control" name="folder" placeholder="carpeta (default: nombre del dominio)">
     <label class="check-line"><input type="checkbox" name="ssl" value="1"> &nbsp;Activar SSL (certbot)</label>
     <button class="btn btn-primary" type="submit">Crear</button>
   </div>

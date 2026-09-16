@@ -112,11 +112,13 @@ is_panel_vhost() {
     && grep -q '/home/miserver/panel' "/etc/apache2/sites-available/$1.conf"
 }
 
-# Garantiza un vhost para $d; si ya existe (p.ej. el del panel), NO lo pisa.
+# Garantiza un vhost para $d apuntando a la carpeta pedida. Solo se respeta el
+# vhost del panel; cualquier otra conf (aunque exista de antes) se reescribe para
+# que nunca sirva la carpeta equivocada de otro dominio.
 vhost_ensure() { # $1=usuario $2=dominio $3=folder
   local u="$1" d="$2" f="$3"
-  if [ -f "/etc/apache2/sites-available/$d.conf" ]; then
-    echo "vhost de $d ya existe (se respeta)"
+  if is_panel_vhost "$d"; then
+    echo "vhost del panel, se respeta"
     return
   fi
   vhost_conf "$u" "$d" "$f"
@@ -149,7 +151,9 @@ case "$cmd" in
     id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
     setpw_linux "$u" "$p"
     mkdir -p "/home/$u/public_html"
-    [ -f "/home/$u/public_html/index.html" ] || printf '<h1>Bienvenido a %s</h1>\n' "$d" > "/home/$u/public_html/index.html"
+    if [ -z "$(ls -A "/home/$u/public_html" 2>/dev/null)" ]; then
+      printf '<h1>Bienvenido a %s</h1>\n' "$d" > "/home/$u/public_html/index.html"
+    fi
     chown -R "$u:$u" "/home/$u"
     vhost_ensure "$u" "$d" "public_html"
     # Cuenta MySQL: localhost + remoto (%). Admin ve TODAS las BD; el resto
@@ -170,6 +174,19 @@ case "$cmd" in
     log "user:setpw $u"
     setpw_linux "$u" "$p"
     msql -e "ALTER USER '$u'@'localhost' IDENTIFIED BY '$p'; ALTER USER '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;" 2>/dev/null || true
+    echo ok
+    ;;
+
+  user:home)
+    [ $# -ge 1 ] || die "user:home <usuario>"
+    u="$1"; vuser "$u"
+    id "$u" >/dev/null 2>&1 || die "el usuario $u no existe"
+    log "user:home $u"
+    install -d -o "$u" -g "$u" "/home/$u/public_html"
+    if [ -z "$(ls -A "/home/$u/public_html" 2>/dev/null)" ]; then
+      printf '<h1>Bienvenido</h1>\n' > "/home/$u/public_html/index.html"
+      chown "$u:$u" "/home/$u/public_html/index.html"
+    fi
     echo ok
     ;;
 
@@ -197,7 +214,9 @@ case "$cmd" in
     u="$1"; d="$2"; f="$3"; vuser "$u"; vdom "$d"; vrel "$f"
     log "vhost:add $u $d $f"
     mkdir -p "/home/$u/$f"
-    [ -f "/home/$u/$f/index.html" ] || printf '<h1>%s</h1>\n' "$d" > "/home/$u/$f/index.html"
+    if [ -z "$(ls -A "/home/$u/$f" 2>/dev/null)" ]; then
+      printf '<h1>%s</h1>\n' "$d" > "/home/$u/$f/index.html"
+    fi
     chown -R "$u:$u" "/home/$u/$f"
     vhost_ensure "$u" "$d" "$f"
     apache_reload

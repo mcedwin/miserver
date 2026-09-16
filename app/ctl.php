@@ -86,8 +86,19 @@ function job_spawn(int $id, array $args): void
     @touch($log);
     $inner = 'nohup sudo -n ' . ctl_path() . ' ' . implode(' ', array_map('escapeshellarg', $args))
         . ' >> ' . escapeshellarg($log) . ' 2>&1';
-    $full = '( ' . $inner . '; echo "MISERVER_EXIT=$?" >> ' . escapeshellarg($log) . ' ) & echo $!';
-    @exec($full, $out);
+    // Shell separado: lanza el comando en segundo plano y sale al instante.
+    $full = '( ' . $inner . '; echo "MISERVER_EXIT=$?" >> ' . escapeshellarg($log) . ' ) &';
+    $proc = @proc_open($full, [
+        0 => ['pipe', 'r'],
+        1 => ['file', '/dev/null', 'w'],
+        2 => ['file', '/dev/null', 'w'],
+    ], $pipes);
+    if (is_resource($proc)) {
+        fclose($pipes[0]);
+        @proc_close($proc); // sh sale al momento; el job queda en segundo plano
+    } elseif (function_exists('exec')) {
+        @exec($full, $out); // respaldo si proc_open estuviera deshabilitado
+    }
     db_run('UPDATE job SET started_at = NOW() WHERE id = ?', [$id]);
 }
 
