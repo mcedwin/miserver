@@ -54,13 +54,15 @@ setpw_linux() {
   usermod -p "$h" "$u"
 }
 
-# Ruta relativa dentro del home: sin absolutas, sin '..'
+# Ruta relativa dentro del home: sin absolutas, sin '..', sin control. Se permite
+# espacio y caracteres imprimibles (nombres realistas: "Mi Carpeta", "foto 1.jpg").
+re_rel='^[A-Za-z0-9_.][A-Za-z0-9_ ./@%()+=,{}#!~[:print:]-]{0,254}$'
 vrel() {
   local r="$1"
   [ -n "$r" ] || die "ruta vacia"
   [[ "$r" != /* ]] || die "ruta absoluta no permitida"
   [[ "$r" != *'..'* ]] || die "'..' no permitido"
-  [[ "$r" =~ ^[A-Za-z0-9_][A-Za-z0-9_./-]{0,254}$ ]] || die "ruta no valida"
+  [[ "$r" =~ $re_rel ]] || die "ruta no valida"
 }
 
 fs_full() { echo "/home/$1/$2"; }

@@ -30,7 +30,8 @@
   }
 
   function post(url, data) {
-    var body = typeof data === 'string' ? data : new URLSearchParams(data || {});
+    var isForm = typeof FormData !== 'undefined' && data instanceof FormData;
+    var body = isForm ? data : (typeof data === 'string' ? data : new URLSearchParams(data || {}));
     return fetch(url, {
       method: 'POST',
       headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
