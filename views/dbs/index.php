@@ -1,5 +1,6 @@
 <?php /** views/dbs/index.php */ ?>
 <?php $isAdmin = ($u['role'] ?? '') === 'admin'; ?>
+<?php $cfg = db_config(); ?>
 <div class="section-header">
   <h3>Bases de datos <span class="muted">— <?= e($ctx['user']) ?></span></h3>
   <?php if (!empty($users)): ?>
@@ -12,6 +13,15 @@
       </select>
     </label>
   <?php endif; ?>
+</div>
+
+<div class="card mb-1">
+  <h4>Conexión remota (clientes MySQL externos)</h4>
+  <p class="muted">Host: <code><?= e($cfg['domain'] ?: 'IP-del-servidor') ?></code> · Puerto: <code>3306</code> ·
+  Usuario: tu cuenta del panel (ej: <code><?= e($ctx['user']) ?></code>) · Contraseña: la de tu cuenta del panel.<br>
+  Solo se ven las bases otorgadas (<code><?= e($ctx['user']) ?>_*</code>; el admin ve todas). Requiere
+  <code>3306/tcp</code> abierto en el firewall. MySQL 8 (Ubuntu 24.04) usa <code>caching_sha2_password</code>;
+  si un cliente antiguo da "Access denied", usa uno reciente.</p>
 </div>
 
 <div class="tabs">

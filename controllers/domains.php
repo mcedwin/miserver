@@ -42,14 +42,17 @@ function ctrl_domains_store(): void
     $id = (int) db_last_id();
 
     $r = ctl_run(['vhost:add', $owner['user'], $domain, $folder]);
-    if ($r['exit'] !== 0) { respond(false, 'Error al crear el vhost: ' . e($r['out'])); }
+    if ($r['exit'] !== 0) {
+        db_run('DELETE FROM domain WHERE id = ?', [$id]); // rollback: poder reintentar
+        respond(false, 'Error al crear el vhost: ' . e($r['out']));
+    }
 
     $do = do_create_domain($domain);
     if (!$do['ok']) {
         flash('warn', 'Dominio creado pero DNS: ' . $do['msg']);
     }
 
-    if (post('ssl') === '1') {
+    if (post('ssl') !== '0') {
         $jid = job_create('cert', $domain, (int) $owner['id']);
         job_spawn($jid, ['cert:issue', $domain, db_config()['le_email'] ?? '']);
     }

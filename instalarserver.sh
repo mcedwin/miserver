@@ -49,6 +49,20 @@ apt-get install -y --no-install-recommends \
   php-xml php-curl mysql-server mysql-client certbot python3-certbot-apache \
   vsftpd curl wget unzip acl rsync ca-certificates git
 
+# Certbot: verificación en Ubuntu 24.04 (apt) + plugin del Apache.
+log "   Comprobando Certbot y el plugin apache..."
+if ! certbot --version >/dev/null 2>&1; then
+  echo "   certbot no responde; reintentando instalación..."
+  apt-get install -y certbot python3-certbot-apache || true
+fi
+if ! certbot plugins 2>/dev/null | grep -qi '^ *apache\|mod_auth\|apache'; then
+  echo "   plugin apache de certbot NO detectado; instalando python3-certbot-apache..."
+  apt-get install -y --no-install-recommends python3-certbot-apache || \
+    echo "   ERROR: no se pudo instalar el plugin apache. Hazlo manualmente: apt install python3-certbot-apache" >&2
+fi
+certbot --version && certbot plugins | grep -i apache && echo "   -> certbot OK con plugin apache" \
+  || echo "   ATENCION: verifica certbot --version y certbot plugins en la consola"
+
 # MPM prefork (necesario por mod_php) + mod_ruid2 (usuario por vhost) + rewrite + ssl
 a2dismod -f mpm_worker mpm_event >/dev/null 2>&1 || true
 a2enmod -f mpm_prefork >/dev/null 2>&1 || true
@@ -111,6 +125,15 @@ if [ -f "$cnf" ]; then
   systemctl restart mysql 2>/dev/null || service mysql restart >/dev/null 2>&1 || true
   for _i in $(seq 1 30); do mysqladmin ping >/dev/null 2>&1 && break; sleep 2; done
   mysqladmin ping >/dev/null 2>&1 || echo "ATENCION: MySQL no volvió a responder tras reconfigurar bind-address." >&2
+fi
+
+# MySQL remoto a la vista: si ufw está activo, abre el 3306 (los usuarios del
+# panel se crean con cuenta 'usuario'@'%'; el firewall controla quién llega).
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q 'Status: active'; then
+  ufw allow 3306/tcp >/dev/null 2>&1 && log "   ufw: permitido 3306/tcp (MySQL remoto)" \
+    || echo "   ATENCION: no se pudo abrir 3306 en ufw (hazlo manualmente)." >&2
+else
+  echo "   (ufw no está activo; si lo actives luego: ufw allow 3306/tcp)"
 fi
 
 # openssl rand (no usar pipe: tr|head recibe SIGPIPE y con pipefail aborta en silencio).
@@ -326,9 +349,15 @@ cat <<EOF
    * Abre los puertos en el firewall si usas ufw/os-security:
        ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp
        ufw allow 21/tcp; ufw allow 10000:10100/tcp (FTP pasivo)
+       ufw allow 3306/tcp  (MySQL REMOTO; los usuarios se crean como 'user'@'%')
    * El dominio ${PANEL_HOST} apunta al PANEL (Apache + mod_ruid2 como
      usuario 'miserver'). Los sitios de las cuentas se crean desde el panel
      con sus propios dominios.
+   * MySQL remoto: la cuenta 'admin' ve todas las bases; el resto solo las suyas
+     (prefijo usuario_). El puerto 3306 ya queda a la escucha (bind 0.0.0.0).
+   * Certbot se instaló por apt (Ubuntu 24.04) con el plugin apache. La emisión
+     se hace desde el panel (Dominios -> Activar SSL) o con:
+       certbot --apache --non-interactive --agree-tos --redirect -d tusitio.com
    * Crea cuentas/dominios desde el panel; cada cuenta tendrá su
      usuario Linux, vhost Apache y usuario MySQL propios.
    * Los backups se hacen manualmente desde el panel (Inicio → Crear backup)

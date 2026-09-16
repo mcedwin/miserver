@@ -33,32 +33,27 @@ function file_rel(string $raw, array $ctx): ?string
     return implode('/', $segs);
 }
 
-function file_entries(string $dir, bool $showHidden): array
+function file_entries(string $user, string $rel, bool $showHidden): array
 {
-    $items = ['dirs' => [], 'files' => []];
-    $entries = @scandir($dir);
-    if ($entries === false) {
+    $items = ['dirs' => [], 'files' => [], 'error' => ''];
+    $r = ctl_run(['fs:list', $user, $rel, $showHidden ? 'hidden' : '']);
+    if ($r['exit'] !== 0) {
+        $items['error'] = trim(preg_replace('/^error:\s*/', '', $r['out']));
         return $items;
     }
-    foreach ($entries as $name) {
-        if ($name === '.' || $name === '..') {
+    foreach (preg_split('/\r?\n/', $r['out']) as $line) {
+        if ($line === '') {
             continue;
         }
-        if (!$showHidden && $name[0] === '.') {
-            continue;
-        }
-        $full = $dir . '/' . $name;
-        if (!@file_exists($full)) {
-            continue; // symlink roto
-        }
-        if (is_dir($full) && !is_link($full)) {
-            $items['dirs'][] = ['name' => $name, 'mtime' => @filemtime($full)];
-        } else {
+        [$t, $name, $size, $mtime] = array_pad(explode("\t", $line, 4), 4, '');
+        if ($t === 'D') {
+            $items['dirs'][] = ['name' => $name, 'mtime' => (int) $mtime];
+        } elseif ($t === 'F') {
             $items['files'][] = [
                 'name' => $name,
-                'size' => @filesize($full),
-                'mtime' => @filemtime($full),
-                'editable' => is_readable($full) && @filesize($full) < 2 * 1024 * 1024,
+                'size' => (int) $size,
+                'mtime' => (int) $mtime,
+                'editable' => (int) $size < 2 * 1024 * 1024,
             ];
         }
     }
@@ -75,7 +70,10 @@ function ctrl_files_index(): void
     $rel = file_rel(query('p', ''), $ctx);
     if ($rel === null) { redirect('files'); }
     $dir = $base . ($rel === '' ? '' : '/' . $rel);
-    $entries = file_entries($dir, query('h') === '1');
+    $entries = file_entries($ctx['user'], $rel, query('h') === '1');
+    if ($entries['error'] !== '') {
+        flash('err', 'No se pudo listar: ' . $entries['error']);
+    }
     $crumbs = [];
     $r = '';
     foreach (explode('/', $rel) as $seg) {
@@ -100,19 +98,14 @@ function ctrl_files_editor(): void
 {
     $u = require_login();
     $ctx = ctx_user($u);
-    $base = file_base($ctx);
     $rel = file_rel(query('p', ''), $ctx);
     if ($rel === null || $rel === '') { redirect('files'); }
-    $full = $base . '/' . $rel;
-    if (!is_file($full) || !is_readable($full)) {
+    $r = ctl_run_raw(['fs:cat', $ctx['user'], $rel, '2097152']);
+    if ($r['exit'] !== 0 || $r['err'] !== '') {
         flash('err', 'No se puede editar ese archivo.');
         redirect('files?p=' . urlencode(dirname($rel) === '.' ? '' : dirname($rel)));
     }
-    if (@filesize($full) > 2 * 1024 * 1024) {
-        flash('err', 'Archivo demasiado grande para editar en el panel.');
-        redirect('files?p=' . urlencode(dirname($rel) === '.' ? '' : dirname($rel)));
-    }
-    $content = (string) @file_get_contents($full);
+    $content = $r['out'];
     if (strpos($content, "\0") !== false) {
         flash('err', 'El archivo es binario y no se puede editar como texto.');
         redirect('files?p=' . urlencode(dirname($rel) === '.' ? '' : dirname($rel)));
@@ -139,7 +132,7 @@ function ctrl_files_save(): void
     if (strlen($content) > 2 * 1024 * 1024) { respond(false, 'Contenido demasiado grande.'); }
     $r = ctl_run(['fs:write', $ctx['user'], $rel], $content);
     if ($r['exit'] !== 0) { respond(false, 'Error al guardar: ' . e($r['out'])); }
-    respond(true, 'Archivo guardado.', url('files/edit?p=' . urlencode($rel)));
+    respond(true, 'Archivo guardado.', url('files/edit?u=' . (int) $ctx['id'] . '&p=' . urlencode($rel)));
 }
 
 function ctrl_files_mkdir(): void
@@ -151,7 +144,7 @@ function ctrl_files_mkdir(): void
     if ($rel === null || $rel === '') { respond(false, 'Directorio no válido.'); }
     $r = ctl_run(['fs:mkdir', $ctx['user'], $rel]);
     if ($r['exit'] !== 0) { respond(false, 'Error: ' . e($r['out'])); }
-    respond(true, 'Directorio creado.', url('files?p=' . urlencode(dirname($rel))));
+    respond(true, 'Directorio creado.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode(dirname($rel))));
 }
 
 function ctrl_files_upload(): void
@@ -174,7 +167,7 @@ function ctrl_files_upload(): void
     $destRel = $rel === '' ? $name : $rel . '/' . $name;
     $r = ctl_run(['fs:put', $ctx['user'], $destRel, $_FILES['up']['tmp_name']]);
     if ($r['exit'] !== 0) { respond(false, 'Error al subir: ' . e($r['out'])); }
-    respond(true, 'Archivo subido.', url('files?p=' . urlencode($rel)));
+    respond(true, 'Archivo subido.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($rel)));
 }
 
 function ctrl_files_delete(): void
@@ -187,7 +180,7 @@ function ctrl_files_delete(): void
     $r = ctl_run(['fs:rm', $ctx['user'], $rel]);
     if ($r['exit'] !== 0) { respond(false, 'Error al eliminar: ' . e($r['out'])); }
     $parent = dirname($rel);
-    respond(true, 'Eliminado.', url('files?p=' . urlencode($parent === '.' ? '' : $parent)));
+    respond(true, 'Eliminado.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent === '.' ? '' : $parent)));
 }
 
 function ctrl_files_rename(): void
@@ -214,16 +207,14 @@ function ctrl_files_raw(): void
 {
     $u = require_login();
     $ctx = ctx_user($u);
-    $base = file_base($ctx);
     $rel = file_rel(query('p', ''), $ctx);
     if ($rel === null || $rel === '') { respond(false, 'Ruta no válida.'); }
-    $full = $base . '/' . $rel;
-    if (!is_file($full) || !is_readable($full) || @filesize($full) > 20 * 1024 * 1024) {
-        respond(false, 'Archivo no disponible.');
-    }
+    $r = ctl_run_raw(['fs:cat', $ctx['user'], $rel, '20971520']);
+    if ($r['exit'] !== 0 || $r['err'] !== '') { respond(false, 'Archivo no disponible.'); }
     header('Content-Type: application/octet-stream');
-    header('Content-Disposition: attachment; filename="' . addslashes(basename($rel)) . '"');
-    header('Content-Length: ' . (string) @filesize($full));
-    readfile($full);
+    $fname = str_replace(['"', '\\'], ['_', '_'], basename($rel));
+    header('Content-Disposition: attachment; filename="' . $fname . '"');
+    header('Content-Length: ' . (string) strlen($r['out']));
+    echo $r['out'];
     exit;
 }

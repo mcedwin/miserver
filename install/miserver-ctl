@@ -54,18 +54,38 @@ setpw_linux() {
   usermod -p "$h" "$u"
 }
 
-# Ruta relativa dentro del home: sin absolutas, sin '..', sin control. Se permite
-# espacio y caracteres imprimibles (nombres realistas: "Mi Carpeta", "foto 1.jpg").
-re_rel='^[A-Za-z0-9_.][A-Za-z0-9_ ./@%()+=,{}#!~[:print:]-]{0,254}$'
+# Ruta relativa (home o carpeta de dominio): sin absolutas, sin '..', sin bytes de
+# control, max. 255. Se permiten espacios, acentos y UTF-8 ("Mi Carpeta", "foto n.jpg").
+# La seguridad no depende del juego de caracteres: los argumentos llegan como argv
+# (proc_open desde PHP; nunca se interpolan en un shell) y toda ruta pasa por
+# fs_check (no atraviesa symlinks fuera del home).
 vrel() {
   local r="$1"
   [ -n "$r" ] || die "ruta vacia"
+  [ ${#r} -le 255 ] || die "ruta demasiado larga"
   [[ "$r" != /* ]] || die "ruta absoluta no permitida"
   [[ "$r" != *'..'* ]] || die "'..' no permitido"
-  [[ "$r" =~ $re_rel ]] || die "ruta no valida"
+  case "$r" in
+    *[[:cntrl:]]*) die "caracter de control en la ruta" ;;
+  esac
 }
 
 fs_full() { echo "/home/$1/$2"; }
+
+# fs_check <usuario> <ruta-relativa>: garantiza que la ruta no atraviesa enlaces
+# simbolicos de /home/<u> hacia fuera (aislamiento entre usuarios). Recorre los
+# segmentos ya existentes; si alguno es symlink se aborta.
+fs_check() { # $1=usuario $2=ruta-relativa
+  local u="$1" r="$2" dir="/home/$u" IFS=/ segs=() s
+  if [ -L "$dir" ]; then die "el home del usuario es un enlace simbolico"; fi
+  [ -n "$r" ] || return 0
+  read -ra segs <<< "$r" || true
+  for s in "${segs[@]}"; do
+    [ -n "$s" ] || continue
+    dir="$dir/$s"
+    if [ -L "$dir" ]; then die "la ruta atraviesa un enlace simbolico ('$s'): operacion no permitida"; fi
+  done
+}
 
 # Chown por uid/gid del usuario (evita "invalid user" si falta la cuenta Linux)
 fchown() { # $1+=rutas
@@ -88,9 +108,9 @@ vhost_conf() { # $1=usuario $2=dominio $3=folder
   ServerAdmin webmaster@$d
   ServerName $d
   ServerAlias www.$d
-  DocumentRoot /home/$u/$f
-  <Directory /home/$u/$f>
-    Options Indexes FollowSymLinks
+  DocumentRoot "/home/$u/$f"
+  <Directory "/home/$u/$f">
+    Options -Indexes FollowSymLinks
     AllowOverride All
     Require all granted
   </Directory>
@@ -180,13 +200,13 @@ case "$cmd" in
   user:home)
     [ $# -ge 1 ] || die "user:home <usuario>"
     u="$1"; vuser "$u"
-    id "$u" >/dev/null 2>&1 || die "el usuario $u no existe"
     log "user:home $u"
+    id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
     install -d -o "$u" -g "$u" "/home/$u/public_html"
     if [ -z "$(ls -A "/home/$u/public_html" 2>/dev/null)" ]; then
       printf '<h1>Bienvenido</h1>\n' > "/home/$u/public_html/index.html"
-      chown "$u:$u" "/home/$u/public_html/index.html"
     fi
+    chown -R "$u:$u" "/home/$u"
     echo ok
     ;;
 
@@ -213,6 +233,7 @@ case "$cmd" in
     [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder>"
     u="$1"; d="$2"; f="$3"; vuser "$u"; vdom "$d"; vrel "$f"
     log "vhost:add $u $d $f"
+    id "$u" >/dev/null 2>&1 || die "el usuario Linux '$u' no existe; ejecuta php cli.php home-linux (o setup-linux)"
     mkdir -p "/home/$u/$f"
     if [ -z "$(ls -A "/home/$u/$f" 2>/dev/null)" ]; then
       printf '<h1>%s</h1>\n' "$d" > "/home/$u/$f/index.html"
@@ -248,25 +269,83 @@ case "$cmd" in
     echo ok
     ;;
 
+  vhost:check)
+    [ $# -ge 1 ] || die "vhost:check <dominio>"
+    d="$1"; vdom "$d"
+    conf="/etc/apache2/sites-available/$d.conf"
+    [ -f "$conf" ] || { echo "error: no hay vhost para $d" >&2; exit 2; }
+    echo "== VirtualHost resuelto =="
+    grep -E '^\s*(ServerName|ServerAlias|DocumentRoot|RUidGid)' "$conf"
+    root="$(awk '/^[[:space:]]*DocumentRoot/{gsub(/"/,""); sub(/^[[:space:]]*DocumentRoot[[:space:]]+/,""); print; exit}' "$conf")"
+    echo "== carpeta fisica =="
+    if [ -d "$root" ]; then
+      stat -c 'dir  %A  %U:%G  -> %n' "$root"
+      du -sh "$root" 2>/dev/null | sed 's/^/tam  /'
+    else
+      echo "error: $root NO existe"
+      exit 2
+    fi
+    if ! apache2ctl -t >/dev/null 2>&1; then
+      echo "== apache configtest: ERROR =="
+      apache2ctl -t
+      exit 2
+    fi
+    echo "== apache2ctl -S (coincidencia de vhost) =="
+    apache2ctl -S 2>&1 | grep -iE "$d|port 80 namevhost" | grep -v '^.*RUidGid' || true
+    echo "== respuesta local con Host: $d =="
+    if command -v curl >/dev/null 2>&1; then
+      curl -m 6 -s -o /tmp/vhost-check.html -w 'HTTP %{http_code} desde %{url_effective}\n' -H "Host: $d" "http://127.0.0.1/" || echo "sin respuesta HTTP local"
+      [ -f /tmp/vhost-check.html ] && { head -c 200 /tmp/vhost-check.html | sed 's/^/  /'; rm -f /tmp/vhost-check.html; }
+    else
+      echo "(curl no disponible; omite comprobacion HTTP)"
+    fi
+    echo ok
+    ;;
+
   cert:issue)
     [ $# -ge 1 ] || die "cert:issue <dominio> [email]"
     d="$1"; vdom "$d"
     email="${2:-}"
     log "cert:issue $d"
-    if [ -n "$email" ]; then
-      certbot --apache --non-interactive --agree-tos -m "$email" -d "$d"
-    else
-      certbot --apache --non-interactive --agree-tos --register-unsafely-without-email -d "$d"
-    fi
-    apache_reload
-    echo ok
+    run_cert() {
+      if [ -n "$email" ]; then
+        certbot --apache --non-interactive --agree-tos --redirect -m "$email" -d "$d"
+      else
+        certbot --apache --non-interactive --agree-tos --redirect --register-unsafely-without-email -d "$d"
+      fi
+    }
+    # Reintenta hasta ~4 min: el DNS del dominio recién creado puede tardar en
+    # propagar. Cada intento escribe progreso -> visible en "Tareas".
+    MAX_INTENTOS=12
+    i=0
+    while [ "$i" -lt "$MAX_INTENTOS" ]; do
+      i=$((i + 1))
+      ip="$(getent hosts "$d" | awk '{print $1}' | head -1)"
+      echo "[cert] $d intento $i/$MAX_INTENTOS (DNS=$ip)"
+      if [ -n "$ip" ] && run_cert; then
+        apache_reload
+        echo ok
+        exit 0
+      fi
+      [ "$i" -lt "$MAX_INTENTOS" ] && sleep 20
+    done
+    echo "error: no se pudo emitir el certificado para $d (¿DNS apunta a este servidor y el puerto 80 está abierto?)" >&2
+    exit 1
     ;;
 
   # --- Bases de datos --------------------------------------------------------
   db:add)    [ $# -ge 1 ] || die "db:add <nombre> [usuario-dueño]"; vname "$1"; log "db:add $1"
+             msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4"
              if [ $# -ge 2 ]; then vuser "$2"
-               msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4; GRANT ALL PRIVILEGES ON \`$1\`.* TO '$2'@'localhost', '$2'@'%'; FLUSH PRIVILEGES;"
-             else msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4"; fi
+               g=''
+               if msql -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE User='$2' AND Host='localhost'" | grep -qx '1'; then g="'$2'@'localhost'"; fi
+               if msql -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE User='$2' AND Host='%'" | grep -qx '1'; then
+                 [ -z "$g" ] || g="$g, "
+                 g="${g}'$2'@'%'"
+               fi
+               [ -n "$g" ] || die "el usuario MySQL '$2' no tiene cuenta; creado con user:add o dbu:add"
+               msql -e "GRANT ALL PRIVILEGES ON \`$1\`.* TO $g; FLUSH PRIVILEGES;"
+             fi
              echo ok ;;
   db:del)    [ $# -ge 1 ] || die "db:del <nombre>"; vname "$1"; log "db:del $1"
              msql -e "DROP DATABASE IF EXISTS \`$1\`"; echo ok ;;
@@ -287,6 +366,18 @@ case "$cmd" in
   db:revoke) [ $# -ge 2 ] || die "db:revoke <base> <usuario>"; vname "$1"; vname "$2"; log "db:revoke $2 -> $1"
              msql -e "REVOKE ALL PRIVILEGES ON \`$1\`.* FROM \`$2\`@'localhost', \`$2\`@'%'; FLUSH PRIVILEGES;" 2>/dev/null || true
              echo ok ;;
+
+  db:grants)
+    [ $# -ge 1 ] || die "db:grants <usuario>"
+    vname "$1"
+    for h in localhost '%'; do
+      echo "== '$1'@'$h' =="
+      msql -e "SHOW GRANTS FOR '$1'@'$h'" 2>/dev/null || echo "  (no existe la cuenta para el host $h)"
+    done
+    echo "== bases reales que puede ver =="
+    msql -N -e "SHOW DATABASES LIKE '${1}\\\_%'" 2>/dev/null || true
+    echo ok
+    ;;
 
   db:admin)  [ $# -ge 1 ] || die "db:admin <usuario>"; vuser "$1"; log "db:admin $1 (todas las BD)"
              msql -e "GRANT ALL PRIVILEGES ON *.* TO \`$1\`@'localhost', \`$1\`@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
@@ -323,9 +414,41 @@ case "$cmd" in
     ;;
 
   # --- Archivos --------------------------------------------------------------
+  fs:list)
+    [ $# -ge 2 ] || die "fs:list <usuario> <ruta-relativa> [hidden]"
+    u="$1"; r="$2"; vuser "$u"
+    if [ -n "$r" ]; then vrel "$r"; fi   # ruta "" = raiz del home
+    fs_check "$u" "$r"
+    show_hidden=0
+    [ $# -ge 3 ] && [ "$3" = "hidden" ] && show_hidden=1
+    dir="$(fs_full "$u" "$r")"
+    [ -d "$dir" ] || die "directorio no existe"
+    for e in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+      if [ -e "$e" ]; then
+        name="${e##*/}"
+        if [ ! -L "$e" ]; then   # symlinks omitidos (aislamiento entre homes)
+          if [ "$show_hidden" = 0 ] && [[ "$name" == .* ]]; then continue; fi
+          if [ -d "$e" ]; then printf 'D\t%s\t%s\n' "$name" "$(stat -c %Y "$e")"
+          else printf 'F\t%s\t%s\t%s\n' "$name" "$(stat -c %s "$e")" "$(stat -c %Y "$e")"; fi
+        fi
+      fi
+    done
+    ;;
+
+  fs:cat)
+    [ $# -ge 2 ] || die "fs:cat <usuario> <ruta-relativa> [maxbytes]"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    maxb="${3:-2097152}"
+    full="$(fs_full "$u" "$r")"
+    [ -f "$full" ] || die "no es un archivo"
+    sz="$(stat -c %s "$full")"
+    [ "$sz" -le "$maxb" ] || die "archivo demasiado grande ($sz bytes)"
+    cat "$full"
+    ;;
+
   fs:write)
     [ $# -ge 2 ] || die "fs:write <usuario> <ruta-relativa>"
-    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
     full="$(fs_full "$u" "$r")"
     mkdir -p "$(dirname "$full")"
     cat > "$full"          # contenido por stdin
@@ -336,7 +459,7 @@ case "$cmd" in
 
   fs:put)
     [ $# -ge 3 ] || die "fs:put <usuario> <ruta-relativa> <archivo-temporal>"
-    u="$1"; r="$2"; src="$3"; vuser "$u"; vrel "$r"
+    u="$1"; r="$2"; src="$3"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
     [ -f "$src" ] || die "archivo temporal no existe"
     full="$(fs_full "$u" "$r")"
     mkdir -p "$(dirname "$full")"
@@ -348,7 +471,7 @@ case "$cmd" in
 
   fs:mkdir)
     [ $# -ge 2 ] || die "fs:mkdir <usuario> <ruta-relativa>"
-    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
     mkdir -p "$(fs_full "$u" "$r")"
     fchown "$u" "$(fs_full "$u" "$r")"
     echo ok
@@ -356,7 +479,7 @@ case "$cmd" in
 
   fs:mv)
     [ $# -ge 3 ] || die "fs:mv <usuario> <origen-rel> <destino-rel>"
-    u="$1"; s="$2"; d="$3"; vuser "$u"; vrel "$s"; vrel "$d"
+    u="$1"; s="$2"; d="$3"; vuser "$u"; vrel "$s"; vrel "$d"; fs_check "$u" "$s"; fs_check "$u" "$d"
     src="$(fs_full "$u" "$s")"; dst="$(fs_full "$u" "$d")"
     [ -e "$src" ] || die "no existe"
     mkdir -p "$(dirname "$dst")"
@@ -368,7 +491,7 @@ case "$cmd" in
 
   fs:rm)
     [ $# -ge 2 ] || die "fs:rm <usuario> <ruta-relativa>"
-    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
     full="$(fs_full "$u" "$r")"
     [ -e "$full" ] || die "no existe"
     if [ -d "$full" ]; then

@@ -17,7 +17,8 @@
     <?php endif; ?>
     <input class="form-control" name="domain" placeholder="ej: proyecto.com" required>
     <input class="form-control" name="folder" placeholder="carpeta (default: nombre del dominio)">
-    <label class="check-line"><input type="checkbox" name="ssl" value="1"> &nbsp;Activar SSL (certbot)</label>
+    <p class="muted">El sitio se sirve desde <code>/home/&lt;usuario&gt;/&lt;carpeta&gt;</code> (DocumentRoot de Apache).</p>
+    <label class="check-line"><input type="checkbox" name="ssl" value="1" checked> &nbsp;Instalar SSL (Let's Encrypt)</label>
     <button class="btn btn-primary" type="submit">Crear</button>
   </div>
 </form>

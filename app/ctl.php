@@ -62,6 +62,32 @@ function ctl_run(array $args, string $stdin = ''): array
     return ['exit' => $exit, 'out' => trim($out . ($err ? "\n" . $err : ''))];
 }
 
+/**
+ * Ejecuta el wrapper de forma síncrona y devuelve la salida estándar SIN
+ * recortar (para fs:cat: contenido exacto de archivos, incluidos saltos de
+ * línea y bytes finales).
+ * @param string[] $args
+ * @return array{exit:int,out:string,err:string}
+ */
+function ctl_run_raw(array $args): array
+{
+    if (!ctl_available()) {
+        return ['exit' => 127, 'out' => '', 'err' => 'wrapper miserver-ctl no disponible'];
+    }
+    $cmd = array_merge(['sudo', '-n', ctl_path()], $args);
+    $proc = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    if (!is_resource($proc)) {
+        return ['exit' => 127, 'out' => '', 'err' => 'no se pudo ejecutar el wrapper'];
+    }
+    fclose($pipes[0]);
+    $out = stream_get_contents($pipes[1]);
+    $err = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exit = proc_close($proc);
+    return ['exit' => $exit, 'out' => $out, 'err' => $err];
+}
+
 function ctl_ok_else(array $r, string $msg): void
 {
     if ($r['exit'] !== 0) {

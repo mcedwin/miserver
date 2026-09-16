@@ -39,6 +39,31 @@ try {
             cli_out('Esquema BD : ' . (db_schema_exists() ? 'ok' : 'NO instalado (importa res/miserver.sql)'));
             cli_out('Wrapper    : ' . (ctl_available() ? ctl_path() : 'no disponible'));
             cli_out('Panel      : ' . (panel_installed() ? 'instalado' : 'sin admin (php cli.php init ...)'));
+            $adm = db_one("SELECT user FROM user WHERE role = 'admin' ORDER BY id LIMIT 1");
+            if ($adm && ctl_available()) {
+                cli_out('MySQL (' . $adm['user'] . '):');
+                $g = ctl_run(['db:grants', $adm['user']]);
+                cli_out(trim($g['out']));
+            }
+            break;
+
+        case 'domains-check':
+            $dom = $opt['domain'] ?? '';
+            if ($dom === '') {
+                $row = db_one('SELECT domain FROM domain ORDER BY id LIMIT 1');
+                $dom = (string) ($row['domain'] ?? '');
+            }
+            if ($dom === '') {
+                cli_out('No hay dominios que comprobar.');
+                break;
+            }
+            if (!preg_match(RE_DOMAIN, $dom)) {
+                cli_out('Dominio no válido.');
+                exit(1);
+            }
+            $r = ctl_run(['vhost:check', $dom]);
+            cli_out($r['out']);
+            exit($r['exit']);
             break;
 
         case 'init':
@@ -132,6 +157,7 @@ try {
             cli_out('  init --user= X --domain= Y --pass= Z [--le-email=E]');
             cli_out('  setup-linux --pass= X     recrea cuenta Linux/MySQL del admin');
             cli_out('  home-linux                crea el public_html del admin sin tocar claves');
+            cli_out('  domains-check [--domain=X]  verifica DocumentRoot/servido real de un dominio');
             cli_out('  migrate                   adapta el esquema antiguo al nuevo');
             break;
     }
