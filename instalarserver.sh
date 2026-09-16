@@ -98,6 +98,21 @@ mysqladmin ping >/dev/null 2>&1 || {
   exit 1
 }
 
+# MySQL accesible remotamente (los usuarios del panel se crean también como
+# 'usuario'@'%'). Controla quién llega al 3306 con el firewall (ufw).
+cnf=/etc/mysql/mysql.conf.d/mysqld.cnf
+[ -f "$cnf" ] || cnf=/etc/mysql/my.cnf
+if [ -f "$cnf" ]; then
+  sed -i 's/^bind-address\s*=.*/bind-address = 0.0.0.0/' "$cnf"
+  if ! grep -q '^bind-address' "$cnf"; then
+    printf '\n[mysqld]\nbind-address = 0.0.0.0\n' >> "$cnf"
+  fi
+  sed -i 's/^mysqlx-bind-address\s*=.*/mysqlx-bind-address = 0.0.0.0/' "$cnf" || true
+  systemctl restart mysql 2>/dev/null || service mysql restart >/dev/null 2>&1 || true
+  for _i in $(seq 1 30); do mysqladmin ping >/dev/null 2>&1 && break; sleep 2; done
+  mysqladmin ping >/dev/null 2>&1 || echo "ATENCION: MySQL no volvió a responder tras reconfigurar bind-address." >&2
+fi
+
 # openssl rand (no usar pipe: tr|head recibe SIGPIPE y con pipefail aborta en silencio).
 PANEL_DB_PASS="$(openssl rand -hex 12)"
 # MySQL 8.0 (Ubuntu 24.04) rechaza GRANT sobre information_schema: no se otorga.

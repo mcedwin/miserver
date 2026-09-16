@@ -155,3 +155,47 @@ function ctrl_users_toggle(array $p): void
     db_run('UPDATE user SET active = NOT active WHERE id = ?', [(int) $p[0]]);
     respond(true, 'Estado actualizado.', url('users'));
 }
+
+function ctrl_users_db_admin(array $p): void
+{
+    require_admin();
+    csrf_check();
+    $row = user_row((int) $p[0]);
+    if (!$row) { respond(false, 'Usuario no encontrado.'); }
+    $r = ctl_run(['db:admin', $row['user']]);
+    if ($r['exit'] !== 0) { respond(false, 'Error del sistema: ' . e($r['out'])); }
+    respond(true, 'Acceso total (todas las BD) concedido a ' . e($row['user']) . '.', url('users'));
+}
+
+function ctrl_users_db_unadmin(array $p): void
+{
+    require_admin();
+    csrf_check();
+    $row = user_row((int) $p[0]);
+    if (!$row) { respond(false, 'Usuario no encontrado.'); }
+    $r = ctl_run(['db:unadmin', $row['user']]);
+    if ($r['exit'] !== 0) { respond(false, 'Error del sistema: ' . e($r['out'])); }
+    respond(true, 'Acceso total revocado a ' . e($row['user']) . '.', url('users'));
+}
+
+function ctrl_users_db_own(array $p): void
+{
+    require_admin();
+    csrf_check();
+    $row = user_row((int) $p[0]);
+    if (!$row) { respond(false, 'Usuario no encontrado.'); }
+    $r = ctl_run(['db:own', $row['user']]);
+    if ($r['exit'] !== 0) { respond(false, 'Error del sistema: ' . e($r['out'])); }
+    respond(true, 'Acceso a todas las BD de ' . e($row['user']) . ' concedido.', url('users'));
+}
+
+function ctrl_users_db_unown(array $p): void
+{
+    require_admin();
+    csrf_check();
+    $row = user_row((int) $p[0]);
+    if (!$row) { respond(false, 'Usuario no encontrado.'); }
+    $r = ctl_run(['db:unown', $row['user']]);
+    if ($r['exit'] !== 0) { respond(false, 'Error del sistema: ' . e($r['out'])); }
+    respond(true, 'Acceso a las BD de ' . e($row['user']) . ' revocado.', url('users'));
+}

@@ -20,3 +20,20 @@
     <button class="btn btn-primary" type="submit">Guardar</button>
   </form>
 </div>
+<?php if ($editing): ?>
+<?php $lu = e($fields['user']['value']); ?>
+<div class="card mt-1">
+  <h3>Acceso MySQL del usuario principal</h3>
+  <p class="muted">Permisos sobre la cuenta Linux/MySQL <span class="mono"><?= $lu ?></span> (no afecta a los usuarios de BD con prefijo). Se aplican a las cuentas <span class="mono">@localhost</span> y <span class="mono">@%</span> (remoto).</p>
+  <div class="actions">
+    <button class="btn btn-sm" data-post="<?= url('users/'.$id.'/db/own') ?>" data-csrf="<?= csrf_token() ?>">
+      <svg class="ic"><use href="#i-check"/></svg> Acceso solo a sus BD</button>
+    <button class="btn btn-sm" data-post="<?= url('users/'.$id.'/db/unown') ?>" data-csrf="<?= csrf_token() ?>">
+      <svg class="ic"><use href="#i-x"/></svg> Quitar acceso a sus BD</button>
+    <button class="btn btn-sm btn-info" data-post="<?= url('users/'.$id.'/db/admin') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Conceder acceso a TODAS las bases de datos?">
+      <svg class="ic"><use href="#i-check"/></svg> Acceso total (todas las BD)</button>
+    <button class="btn btn-sm btn-danger" data-post="<?= url('users/'.$id.'/db/unadmin') ?>" data-csrf="<?= csrf_token() ?>">
+      <svg class="ic"><use href="#i-x"/></svg> Quitar acceso total</button>
+  </div>
+</div>
+<?php endif; ?>

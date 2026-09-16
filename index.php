@@ -27,6 +27,10 @@ $ROUTES = [
     ['POST', '/users/{i}',          ['users',   'update']],
     ['POST', '/users/{i}/delete',   ['users',   'destroy']],
     ['POST', '/users/{i}/toggle',   ['users',   'toggle']],
+    ['POST', '/users/{i}/db/admin',   ['users', 'db_admin']],
+    ['POST', '/users/{i}/db/unadmin', ['users', 'db_unadmin']],
+    ['POST', '/users/{i}/db/own',     ['users', 'db_own']],
+    ['POST', '/users/{i}/db/unown',   ['users', 'db_unown']],
 
     ['GET',  '/dbs',                ['dbs',     'index']],
     ['POST', '/dbs/db',             ['dbs',     'db_store']],
