@@ -5,8 +5,9 @@
   <?php if (!empty($users)): ?>
     <label class="inline-label">Usuario:
       <select class="form-control" onchange="location.href='<?= url('dbs') ?>?u='+this.value">
+        <option value="all" <?= $scope==='all'?'selected':'' ?>>Todos los usuarios</option>
         <?php foreach ($users as $x): ?>
-          <option value="<?= (int)$x['id'] ?>" <?= (int)$x['id']===(int)$ctx['id']?'selected':'' ?>><?= e($x['user']) ?></option>
+          <option value="<?= (int)$x['id'] ?>" <?= $scope!=='all' && (int)$x['id']===(int)$ctx['id']?'selected':'' ?>><?= e($x['user']) ?></option>
         <?php endforeach; ?>
       </select>
     </label>
@@ -27,13 +28,18 @@
   </form>
   <div class="table-wrap">
   <table class="table">
-    <thead><tr><th>Nombre real</th><th></th></tr></thead>
+    <thead><tr><th>Nombre real</th><?php if ($scope==='all'): ?><th>Dueño</th><?php endif; ?><th></th></tr></thead>
     <tbody>
       <?php foreach ($shemas as $s): ?>
         <tr>
-          <td class="mono"><?= e(db_prefix($ctx['user'], $s['name'])) ?></td>
+          <td class="mono"><?= e(db_prefix($s['uname'], $s['name'])) ?></td>
+          <?php if ($scope==='all'): ?><td><?= e($s['uname']) ?></td><?php endif; ?>
           <td class="actions">
+          <?php if ($scope==='all'): ?>
+            <a class="btn btn-sm" href="<?= url('dbs') ?>?u=<?= (int)$s['user_id'] ?>">Gestionar</a>
+          <?php else: ?>
             <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar la base y sus datos?" data-post="<?= url('dbs/db/'.$s['id'].'/delete') ?>">Eliminar</button>
+          <?php endif; ?>
           </td>
         </tr>
       <?php endforeach; ?>

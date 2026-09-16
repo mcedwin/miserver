@@ -6,11 +6,16 @@ function ctrl_dbs_index(): void
 {
     $u = require_login();
     $ctx = ctx_user($u);
+    $scope = ($u['role'] ?? '') === 'admin' && query('u') === 'all' ? 'all' : 'ctx';
+    $shemas = $scope === 'all'
+        ? db_all('SELECT s.*, u.user AS uname FROM db_shema s JOIN user u ON u.id = s.user_id ORDER BY u.user, s.name')
+        : db_all('SELECT s.*, u.user AS uname FROM db_shema s JOIN user u ON u.id = s.user_id WHERE s.user_id = ? ORDER BY s.name', [$ctx['id']]);
     $data = [
         'title' => 'Bases de datos',
         'active' => 'dbs',
         'ctx' => $ctx,
-        'shemas' => db_all('SELECT * FROM db_shema WHERE user_id = ? ORDER BY name', [$ctx['id']]),
+        'scope' => $scope,
+        'shemas' => $shemas,
         'dbusers' => db_all('SELECT * FROM db_user WHERE user_id = ? ORDER BY `user`', [$ctx['id']]),
         'relations' => db_all('SELECT r.iduser, r.idshema, s.name AS sname, du.user AS dbu
             FROM db_relation r
