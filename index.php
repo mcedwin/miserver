@@ -61,6 +61,9 @@ $ROUTES = [
     ['POST', '/settings',           ['settings', 'save']],
     ['POST', '/settings/password',  ['settings', 'password']],
 
+    ['GET',  '/disk',               ['disk',    'index']],
+    ['POST', '/disk/browse',        ['disk',    'browse']],
+
     ['GET',  '/jobs',               ['jobs',    'index']],
     ['POST', '/jobs/poll',          ['jobs',    'poll']],
     ['POST', '/jobs/clear',         ['jobs',    'clear']],

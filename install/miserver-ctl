@@ -576,6 +576,39 @@ case "$cmd" in
     echo ok
     ;;
 
+  # --- Disco: uso por carpeta (dentro del home, sin seguir symlinks) -------
+  du:users)
+    # Homes de todos los usuarios con su tamaño total en bytes.
+    for h in /home/*/; do
+      [ -d "$h" ] || continue
+      name="$(basename "$h")"
+      [ "$name" = "miserver" ] && continue
+      printf 'H\t%s\t%s\n' "$name" "$(du -sb "$h" 2>/dev/null | cut -f1 || echo 0)"
+    done
+    ;;
+
+  du:stat)
+    [ $# -eq 2 ] || die "du:stat <usuario> <ruta-relativa>"
+    u="$1"; r="$2"; vuser "$u"
+    ensure_linux_user "$u"
+    if [ -n "$r" ]; then vrel "$r"; fi
+    fs_check "$u" "$r"
+    dir="$(fs_full "$u" "$r")"
+    [ -d "$dir" ] || die "directorio no existe: $r"
+    printf 'T\t%s\t%s\n' "${r:-.}" "$(du -sb "$dir" 2>/dev/null | cut -f1 || echo 0)"
+    for e in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+      [ -e "$e" ] || continue
+      name="${e##*/}"
+      if [ -d "$e" ] && [ ! -L "$e" ]; then
+        printf 'D\t%s\t%s\n' "$name" "$(du -sb "$e" 2>/dev/null | cut -f1 || echo 0)"
+      elif [ -L "$e" ]; then
+        printf 'L\t%s\t%s\n' "$name" "$(stat -c %s "$e" 2>/dev/null || echo 0)"
+      else
+        printf 'F\t%s\t%s\t%s\n' "$name" "$(stat -c %s "$e" 2>/dev/null || echo 0)" "$(stat -c %Y "$e" 2>/dev/null || echo 0)"
+      fi
+    done
+    ;;
+
   sys:info)
     df -Pk / 2>/dev/null | tail -1 | awk '{print "disk|"$2"|"$3"|"$4"|"$5}'
     free -m | awk '/Mem:/{print "mem|"$2"|"$3"|"$4}'
