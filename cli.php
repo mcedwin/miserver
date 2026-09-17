@@ -153,7 +153,8 @@ try {
         case 'upgrade-schema':
             // Migración idempotente del esquema (se ejecuta sola en cada página).
             db_ensure_domain_columns();
-            cli_out('Columnas de aplicaciones (GitHub) verificadas/añadidas en `domain`.');
+            db_ensure_app_tables();
+            cli_out('Tabla `app`, columna `domain.app_id` y FK verificadas/añadidas.');
             break;
 
         case 'help':
@@ -164,7 +165,7 @@ try {
             cli_out('  setup-linux --pass= X     recrea cuenta Linux/MySQL del admin');
             cli_out('  home-linux                crea el public_html del admin sin tocar claves');
             cli_out('  domains-check [--domain=X]  verifica DocumentRoot/servido real de un dominio');
-            cli_out('  upgrade-schema            añade columnas de aplicaciones a `domain` (idempotente)');
+            cli_out('  upgrade-schema            añade tabla `app` y vinculación a `domain` (idempotente)');
             cli_out('  migrate                   adapta el esquema antiguo al nuevo');
             break;
     }

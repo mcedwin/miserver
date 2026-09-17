@@ -53,6 +53,7 @@ function db_ensure_domain_columns(): void
             $db->query('SHOW COLUMNS FROM `domain`')->fetchAll()
         );
         $adds = [
+            'app_id'        => "ALTER TABLE `domain` ADD COLUMN `app_id` int NULL DEFAULT NULL AFTER `user_id`",
             'project_type'  => "ALTER TABLE `domain` ADD COLUMN `project_type` varchar(20) NOT NULL DEFAULT '' AFTER `folder`",
             'git_url'       => "ALTER TABLE `domain` ADD COLUMN `git_url` varchar(500) NOT NULL DEFAULT '' AFTER `project_type`",
             'git_branch'    => "ALTER TABLE `domain` ADD COLUMN `git_branch` varchar(100) NOT NULL DEFAULT 'main' AFTER `git_url`",
@@ -73,5 +74,53 @@ function db_ensure_domain_columns(): void
         }
     } catch (Throwable $e) {
         error_log('miserver db_ensure_domain_columns: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Migración idempotente para el módulo de Aplicaciones (tabla `app`).
+ */
+function db_ensure_app_tables(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        if (!db_schema_exists()) {
+            return;
+        }
+        $db = db();
+        $tables = $db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('app', $tables, true)) {
+            $db->exec("CREATE TABLE `app` (
+                `id` int NOT NULL AUTO_INCREMENT,
+                `user_id` int NOT NULL,
+                `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                `folder` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                `project_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+                `git_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+                `git_branch` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'main',
+                `document_root` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+                `php_version` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+                `git_token` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+                `enabled` tinyint(1) NOT NULL DEFAULT 1,
+                `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `fk_app_user` (`user_id`),
+                CONSTRAINT `fk_app_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+            ) ENGINE = InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        }
+        // FK de domain -> app (idempotente)
+        $fks = $db->query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'domain' AND COLUMN_NAME = 'app_id'")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($fks)) {
+            $db->exec('ALTER TABLE `domain` ADD COLUMN IF NOT EXISTS `app_id` int NULL DEFAULT NULL AFTER `user_id`');
+            $db->exec('ALTER TABLE `domain` ADD KEY `fk_domain_app` (`app_id`)');
+            $db->exec('ALTER TABLE `domain` ADD CONSTRAINT `fk_domain_app` FOREIGN KEY (`app_id`) REFERENCES `app` (`id`) ON DELETE SET NULL ON UPDATE CASCADE');
+        }
+    } catch (Throwable $e) {
+        error_log('miserver db_ensure_app_tables: ' . $e->getMessage());
     }
 }

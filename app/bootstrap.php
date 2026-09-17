@@ -89,3 +89,4 @@ require_once APP_DIR . '/seed.php';
 
 /* Migración idempotente: columnas del módulo de aplicaciones (GitHub). */
 db_ensure_domain_columns();
+db_ensure_app_tables();
