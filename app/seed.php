@@ -112,11 +112,18 @@ function db_ensure_app_tables(): void
                 CONSTRAINT `fk_app_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
             ) ENGINE = InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         }
+        // Columna app_id en domain (idempotente, sin IF NOT EXISTS para compatibilidad con MySQL < 8.0.16)
+        $domainCols = array_map(
+            static fn($r) => (string) $r['Field'],
+            $db->query('SHOW COLUMNS FROM `domain`')->fetchAll()
+        );
+        if (!in_array('app_id', $domainCols, true)) {
+            $db->exec('ALTER TABLE `domain` ADD COLUMN `app_id` int NULL DEFAULT NULL AFTER `user_id`');
+        }
         // FK de domain -> app (idempotente)
         $fks = $db->query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'domain' AND COLUMN_NAME = 'app_id'")->fetchAll(PDO::FETCH_COLUMN);
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'domain' AND COLUMN_NAME = 'app_id' AND CONSTRAINT_NAME != 'PRIMARY'")->fetchAll(PDO::FETCH_COLUMN);
         if (empty($fks)) {
-            $db->exec('ALTER TABLE `domain` ADD COLUMN IF NOT EXISTS `app_id` int NULL DEFAULT NULL AFTER `user_id`');
             $db->exec('ALTER TABLE `domain` ADD KEY `fk_domain_app` (`app_id`)');
             $db->exec('ALTER TABLE `domain` ADD CONSTRAINT `fk_domain_app` FOREIGN KEY (`app_id`) REFERENCES `app` (`id`) ON DELETE SET NULL ON UPDATE CASCADE');
         }
