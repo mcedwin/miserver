@@ -282,14 +282,14 @@ function ctrl_apps_env_from_example(array $p): void
     }
     $envRel = $row['folder'] . '/.env';
 
-    $r = ctl_run_raw(['fs:cat', $owner['user'], $envRel, '1']);
-    if ($r['exit'] === 0 && $r['err'] === '') {
+    $r = ctl_run(['fs:exists', $owner['user'], $envRel]);
+    if ($r['exit'] === 0) {
         respond(true, '.env ya existe.', url('apps/' . (int) $p[0] . '/env'));
     }
 
     $exampleRel = app_env_example_path($row, $owner);
     if ($exampleRel === null) {
-        respond(false, 'No se encontró .env.example, .env.local ni .env.dist en la aplicación.');
+        respond(false, 'No se encontró .env.example, .env.local ni .env.dist en /home/' . e($owner['user']) . '/' . e($row['folder']) . '.');
     }
 
     $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
@@ -412,8 +412,8 @@ function app_env_example_path(array $row, array $owner): ?string
 {
     foreach (['.env.example', '.env.local', '.env.dist'] as $name) {
         $rel = $row['folder'] . '/' . $name;
-        $r = ctl_run_raw(['fs:cat', $owner['user'], $rel, '1']);
-        if ($r['exit'] === 0 && $r['err'] === '') {
+        $r = ctl_run(['fs:exists', $owner['user'], $rel]);
+        if ($r['exit'] === 0) {
             return $rel;
         }
     }

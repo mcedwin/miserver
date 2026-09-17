@@ -685,6 +685,15 @@ case "$cmd" in
     cat "$full"
     ;;
 
+  fs:exists)
+    [ $# -ge 2 ] || die "fs:exists <usuario> <ruta-relativa>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
+    full="$(fs_full "$u" "$r")"
+    [ -f "$full" ] || exit 1
+    echo ok
+    ;;
+
   fs:write)
     [ $# -ge 2 ] || die "fs:write <usuario> <ruta-relativa>"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
