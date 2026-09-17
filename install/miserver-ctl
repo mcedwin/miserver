@@ -897,13 +897,13 @@ case "$cmd" in
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 900 git "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target" || { cleanup_clone; exit 2; }
+      timeout 900 git -c safe.directory="$target" "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target" || { cleanup_clone; exit 2; }
     else
-      timeout 900 git "${extra[@]}" clone --depth 1 -- "$url" "$target" || { cleanup_clone; exit 2; }
+      timeout 900 git -c safe.directory="$target" "${extra[@]}" clone --depth 1 -- "$url" "$target" || { cleanup_clone; exit 2; }
     fi
     # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
     chown -R "$u:$u" "$target" 2>/dev/null || true
-    git -C "$target" remote set-url origin "$url" 2>/dev/null || true
+    git -C "$target" -c safe.directory="$target" remote set-url origin "$url" 2>/dev/null || true
     echo ok
     ;;
 
@@ -930,9 +930,9 @@ case "$cmd" in
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 300 git -C "$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || die "git pull fallo"
+      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || die "git pull fallo"
     else
-      timeout 300 git -C "$target" "${extra[@]}" pull --depth 1 2>&1 || die "git pull fallo"
+      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || die "git pull fallo"
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     echo ok

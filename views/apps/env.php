@@ -5,8 +5,10 @@
   <p class="muted mb-1">
     Archivo <code class="mono">/home/<?= e($owner['user']) ?>/<?= e($rel) ?></code>.
   </p>
-  <?php if (!$existed): ?>
-    <div class="alert-ok alert mb-1">No existe todavía. Pulsa Guardar para crearlo.</div>
+  <?php if (!$existed && $source !== ''): ?>
+    <div class="alert-ok alert mb-1">No existe .env. Se precargó el contenido de <code><?= e($source) ?></code>. Pulsa Guardar para crearlo.</div>
+  <?php elseif (!$existed): ?>
+    <div class="alert alert-warn mb-1">No existe .env ni .env.example en esta aplicación. Escribí el contenido y guardá para crearlo.</div>
   <?php endif; ?>
   <form method="post" action="<?= url('apps/'.$row['id'].'/env') ?>" class="card" style="box-shadow:none;border:0;padding:0">
     <?= csrf_field() ?>

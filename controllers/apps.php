@@ -226,15 +226,19 @@ function ctrl_apps_env(array $p): void
     $rel = $row['folder'] . '/.env';
     $content = '';
     $existed = false;
+    $source = '';
     $r = ctl_run_raw(['fs:cat', $owner['user'], $rel, '2097152']);
     if ($r['exit'] === 0 && $r['err'] === '') {
         $content = $r['out'];
         $existed = true;
     } else {
-        $exampleRel = $row['folder'] . '/.env.example';
-        $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
-        if ($re['exit'] === 0 && $re['err'] === '') {
-            $content = $re['out'];
+        $exampleRel = app_env_example_path($row, $owner);
+        if ($exampleRel !== null) {
+            $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+            if ($re['exit'] === 0 && $re['err'] === '') {
+                $content = $re['out'];
+                $source = basename($exampleRel);
+            }
         }
     }
     render('apps/env', [
@@ -245,6 +249,7 @@ function ctrl_apps_env(array $p): void
         'rel' => $rel,
         'content' => $content,
         'existed' => $existed,
+        'source' => $source,
     ]);
 }
 
@@ -279,23 +284,30 @@ function ctrl_apps_env_from_example(array $p): void
         respond(false, 'Usuario no válido.');
     }
     $envRel = $row['folder'] . '/.env';
-    $exampleRel = $row['folder'] . '/.env.example';
 
     $r = ctl_run_raw(['fs:cat', $owner['user'], $envRel, '1']);
     if ($r['exit'] === 0 && $r['err'] === '') {
         respond(true, '.env ya existe.', url('apps/' . (int) $p[0] . '/env'));
     }
 
+    $exampleRel = app_env_example_path($row, $owner);
+    if ($exampleRel === null) {
+        respond(false, 'No se encontró .env.example, .env.local ni .env.dist en la aplicación.');
+    }
+
     $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
     if ($re['exit'] !== 0 || $re['err'] !== '') {
-        respond(false, 'No se encontró .env.example.');
+        respond(false, 'No se pudo leer ' . basename($exampleRel) . '. Error: ' . e($re['err'] ?: $re['out']));
+    }
+    if ($re['out'] === '') {
+        respond(false, basename($exampleRel) . ' existe pero está vacío.');
     }
 
     $w = ctl_run(['fs:write', $owner['user'], $envRel], $re['out']);
     if ($w['exit'] !== 0) {
         respond(false, 'Error al crear .env: ' . e($w['out']));
     }
-    respond(true, '.env creado desde .env.example.', url('apps/' . (int) $p[0] . '/env'));
+    respond(true, '.env creado desde ' . basename($exampleRel) . '.', url('apps/' . (int) $p[0] . '/env'));
 }
 
 function ctrl_apps_delete(array $p): void
@@ -396,4 +408,17 @@ function app_docroot_path(array $app): string
 {
     $dr = (string) ($app['document_root'] ?? '');
     return $dr !== '' ? $app['folder'] . '/' . $dr : $app['folder'];
+}
+
+/** Busca un archivo de ejemplo de .env y devuelve su ruta relativa, o null. */
+function app_env_example_path(array $row, array $owner): ?string
+{
+    foreach (['.env.example', '.env.local', '.env.dist'] as $name) {
+        $rel = $row['folder'] . '/' . $name;
+        $r = ctl_run_raw(['fs:cat', $owner['user'], $rel, '1']);
+        if ($r['exit'] === 0 && $r['err'] === '') {
+            return $rel;
+        }
+    }
+    return null;
 }
