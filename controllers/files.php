@@ -184,6 +184,49 @@ function ctrl_files_unzip(): void
     respond(true, 'ZIP extraído.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent === '.' ? '' : $parent)));
 }
 
+function ctrl_files_clone(): void
+{
+    $u = require_login();
+    csrf_check();
+    $ctx = ctx_user_from_post($u);
+    $baseRel = file_rel(post('p', ''), $ctx);
+    if ($baseRel === null) { respond(false, 'Directorio no válido.'); }
+    $name = trim(post('name', ''));
+    if ($name === '' || !preg_match(RE_FOLDER, $name)) {
+        respond(false, 'Nombre de carpeta no válido.');
+    }
+    if (in_array($name, ['public_html', '.', '..'], true)) {
+        respond(false, 'Esa carpeta está reservada.');
+    }
+    foreach (explode('/', $baseRel . '/' . $name) as $seg) {
+        if ($seg === 'public_html') {
+            respond(false, 'No se permite public_html dentro de la ruta del proyecto.');
+        }
+    }
+    $destRel = $baseRel === '' ? $name : $baseRel . '/' . $name;
+    if (file_rel($destRel, $ctx) === null) { respond(false, 'Ruta de destino no válida.'); }
+
+    $gitUrl = trim(post('git_url', '') ?? '');
+    $gitBranch = trim(post('git_branch', '') ?? '');
+    if ($gitBranch === '') { $gitBranch = 'main'; }
+    $gitToken = trim(post('git_token', '') ?? '');
+    if ($gitUrl === '' || !preg_match(RE_GITURL, $gitUrl)) {
+        respond(false, 'URL de repositorio no válida (solo https y sin credenciales).');
+    }
+    if (!preg_match(RE_GITBRANCH, $gitBranch)) {
+        respond(false, 'Rama no válida.');
+    }
+    if ($gitToken !== '' && !preg_match(RE_GITTOKEN, $gitToken)) {
+        respond(false, 'Token no válido.');
+    }
+
+    $r = ctl_run(['git:clone', $ctx['user'], $destRel, $gitUrl, $gitBranch, $gitToken]);
+    if ($r['exit'] !== 0) {
+        respond(false, 'Error al clonar: ' . e($r['out']));
+    }
+    respond(true, 'Repositorio clonado en /home/' . e($ctx['user']) . '/' . e($destRel) . '.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($destRel)));
+}
+
 function ctrl_files_delete(): void
 {
     $u = require_login();

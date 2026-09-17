@@ -102,6 +102,7 @@
           <a class="btn btn-xs" href="<?= url('domains/'.$d['id'].'/logs') ?>" title="Ver logs de Apache">Logs</a>
           <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/dns') ?>" data-csrf="<?= csrf_token() ?>" title="Re-registrar DNS en DigitalOcean">DNS</button>
           <button class="btn btn-xs btn-danger" data-post="<?= url('domains/'.$d['id'].'/delete') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar dominio, vhost y certificado?">Eliminar</button>
+          <button class="btn btn-xs btn-danger" data-post="<?= url('domains/'.$d['id'].'/delete') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar dominio, vhost, certificado Y carpeta /home/<?= e($d['uname']) ?>/<?= e($d['folder']) ?>?" data-extra-delete_files="1" title="Eliminar también los archivos del proyecto">Eliminar todo</button>
         </td>
       </tr>
     <?php endforeach; ?>

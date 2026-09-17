@@ -31,6 +31,11 @@ function ctrl_domains_store(): void
     $folder = trim(post('folder', '') ?? '');
     $folder = $folder === '' ? $domain : $folder; // carpeta propia por dominio (evita chocar con public_html)
     $folder = require_match(RE_FOLDER, $folder, 'Carpeta no válida.');
+    foreach (explode('/', $folder) as $seg) {
+        if ($seg === 'public_html') {
+            respond(false, 'No se permite public_html dentro de la ruta del proyecto; usa otra carpeta.');
+        }
+    }
 
     $gitUrl = trim(post('git_url', '') ?? '');
     $gitBranch = trim(post('git_branch', '') ?? '');
@@ -446,8 +451,13 @@ function ctrl_domains_destroy(array $p): void
     $u = require_login();
     csrf_check();
     $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
     ctl_run(['vhost:del', $row['domain']]);
     do_delete_domain($row['domain']);
+    if (post('delete_files') === '1' && $owner) {
+        // Solo se borra la carpeta base del dominio; public_html/home quedan protegidos.
+        ctl_run(['fs:rmtree', $owner['user'], (string) ($row['folder'] ?? '')]);
+    }
     db_run('DELETE FROM domain WHERE id = ?', [(int) $p[0]]);
     respond(true, 'Dominio eliminado.', url('domains'));
 }
