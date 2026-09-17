@@ -235,6 +235,21 @@ function db_prefix(string $linuxUser, string $name): string
     return $linuxUser . '_' . $name;
 }
 
+/** Convierte la salida "campo|v1|v2..." del wrapper en arrays. */
+function parse_pipe_lines(string $raw): array
+{
+    $rows = [];
+    foreach (preg_split('/\r?\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        $parts = explode('|', $line);
+        $rows[] = $parts;
+    }
+    return $rows;
+}
+
 /** Genera una contraseña aleatoria segura para usuarios de BD. */
 function random_password(int $len = 16): string
 {

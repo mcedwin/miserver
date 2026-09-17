@@ -63,18 +63,3 @@ function ctrl_home_download(): void
     readfile($real);
     exit;
 }
-
-/** Convierte la salida "campo|v1|v2..." del wrapper en arrays. */
-function parse_pipe_lines(string $raw): array
-{
-    $rows = [];
-    foreach (preg_split('/\r?\n/', $raw) as $line) {
-        $line = trim($line);
-        if ($line === '') {
-            continue;
-        }
-        $parts = explode('|', $line);
-        $rows[] = $parts;
-    }
-    return $rows;
-}
