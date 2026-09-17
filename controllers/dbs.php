@@ -38,7 +38,8 @@ function ctrl_dbs_db_store(): void
         respond(false, 'Esa base de datos ya existe.');
     }
     db_run('INSERT INTO db_shema (user_id, name) VALUES (?, ?)', [$ctx['id'], $name]);
-    $r = ctl_run(['db:add', db_prefix($ctx['user'], $name), $ctx['user']]);
+    $isAdmin = ($ctx['role'] ?? '') === 'admin';
+    $r = ctl_run(['db:add', db_prefix($ctx['user'], $name), $ctx['user'], $isAdmin ? 'admin' : '']);
     if ($r['exit'] !== 0) { respond(false, 'Error del sistema: ' . e($r['out'])); }
     respond(true, 'Base de datos creada.', url('dbs'));
 }

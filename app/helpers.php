@@ -197,7 +197,7 @@ function ctx_user_id(array $u): int
 /** Usuario "en contexto" (para administradores que operan sobre otro). */
 function ctx_user(array $u): array
 {
-    $row = db_one('SELECT id, user, domain FROM user WHERE id = ?', [ctx_user_id($u)]);
+    $row = db_one('SELECT id, user, domain, role FROM user WHERE id = ?', [ctx_user_id($u)]);
     if (!$row) {
         redirect('home');
     }
@@ -210,7 +210,7 @@ function ctx_user_from_post(array $u): array
     if (($u['role'] ?? '') === 'admin') {
         $id = (int) post('u', '0');
         if ($id > 0) {
-            $row = db_one('SELECT id, user, domain FROM user WHERE id = ?', [$id]);
+            $row = db_one('SELECT id, user, domain, role FROM user WHERE id = ?', [$id]);
             if ($row) {
                 return $row;
             }

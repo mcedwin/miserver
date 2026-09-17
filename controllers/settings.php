@@ -48,7 +48,8 @@ function ctrl_settings_password(): void
     if ($new !== post('new2')) { respond(false, 'Las contraseñas no coinciden.'); }
     db_run('UPDATE user SET password = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $me['id']]);
     // Si el panel tiene cuenta linux, cambiar también la clave del sistema
-    $r = ctl_run(['user:setpw', $me['user'], $new]);
+    $role = ($me['role'] ?? '') === 'admin' ? 'admin' : '';
+    $r = ctl_run(['user:setpw', $me['user'], $new, $role]);
     if ($r['exit'] !== 0) {
         respond(false, 'Se cambió la clave del panel pero no la de Linux: ' . e($r['out']));
     }

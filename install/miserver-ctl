@@ -96,6 +96,51 @@ fchown() { # $1+=rutas
   chown "$uid:$gid" "$@"
 }
 
+# Asegura la cuenta Unix del usuario del panel (idempotente). Si no existe se
+# crea sin clave (bloqueada) y con su home; la clave real se fija luego con
+# user:setpw (Ajustes -> Mi contrasena). Sin esto, un panelista cuya cuenta se
+# perdio no puede usar Archivos/Dominios ("el usuario X no existe").
+ensure_linux_user() { # $1=usuario
+  local u="$1"
+  vuser "$u"
+  if ! id "$u" >/dev/null 2>&1; then
+    useradd -m -s /bin/bash "$u"
+    passwd -l "$u" >/dev/null 2>&1 || true
+    echo "ATENCION: la cuenta Linux '$u' no existia y se ha creado; asigna su clave en panel -> Ajustes -> Mi contrasena." >&2
+  fi
+  install -d -o "$u" -g "$u" "/home/$u"
+}
+
+# Asegura la cuenta MySQL 'usuario'@'localhost' y 'usuario'@'%' (idempotente).
+# Si no existe se crea con una clave temporal (hex) y los permisos de siempre:
+# opcionalmente TODAS las bases (admin) o solo las propias <u>_%. La clave real
+# la fija el panel al cambiar la contrasena de la cuenta (user:setpw).
+ensure_mysql_user() { # $1=usuario [$2=admin]
+  local u="$1" is_adm="${2:-}" tmp have_l=0 have_r=0
+  vuser "$u"
+  msql -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE User='$u' AND Host='localhost'" | grep -qx '1' && have_l=1 || true
+  msql -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE User='$u' AND Host='%'" | grep -qx '1' && have_r=1 || true
+  if [ "$have_l" = 1 ] && [ "$have_r" = 1 ]; then
+    return 0
+  fi
+  tmp="$(openssl rand -hex 16)"; tmp="${tmp:0:16}"
+  if [ "$have_l" = 0 ]; then
+    msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$tmp'"
+    echo "ATENCION: la cuenta MySQL '$u'@'localhost' no existia y se ha creado con clave temporal." >&2
+  fi
+  if [ "$have_r" = 0 ]; then
+    msql -e "CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$tmp'"
+    echo "ATENCION: la cuenta MySQL '$u'@'%' no existia y se ha creado con clave temporal." >&2
+  fi
+  if [ "$is_adm" = "admin" ]; then
+    msql -e "GRANT ALL PRIVILEGES ON *.* TO '$u'@'localhost', '$u'@'%' WITH GRANT OPTION"
+  else
+    esc=$(printf '%s' "$u" | sed 's/[_%]/\\&/g')
+    msql -e "GRANT ALL PRIVILEGES ON \`${esc}\_%\`.* TO '$u'@'localhost', '$u'@'%'"
+  fi
+  msql -e "FLUSH PRIVILEGES"
+}
+
 apache_reload() {
   local out
   if ! out="$(apache2ctl -t 2>&1)"; then
@@ -170,10 +215,12 @@ case "$cmd" in
     [ $# -ge 3 ] || die "user:add <usuario> <pass> <dominio> [admin]"
     u="$1"; p="$2"; d="$3"
     is_admin=0
-    [ $# -ge 4 ] && [ "$4" = "admin" ] && is_admin=1
+    adm=''
+    [ $# -ge 4 ] && [ "$4" = "admin" ] && { is_admin=1; adm='admin'; }
     vuser "$u"; vpass "$p"; vdom "$d"
     log "user:add $u $d${is_admin:+ [admin]}"
-    id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
+    # Auto-repara la cuenta si falta (p.ej. un init que dejó solo la BD).
+    ensure_linux_user "$u"
     setpw_linux "$u" "$p"
     mkdir -p "/home/$u/public_html"
     if [ -z "$(ls -A "/home/$u/public_html" 2>/dev/null)" ]; then
@@ -183,21 +230,19 @@ case "$cmd" in
     vhost_ensure "$u" "$d" "public_html"
     # Cuenta MySQL: localhost + remoto (%). Admin ve TODAS las BD; el resto
     # solo las suyas con prefijo "$u"_ (GRANT por patrón, cubre las futuras).
-    esc=$(printf '%s' "$u" | sed 's/[_%]/\\&/g')
-    if [ "$is_admin" = 1 ]; then
-      msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$p'; CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$p'; GRANT ALL PRIVILEGES ON *.* TO '$u'@'localhost', '$u'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-    else
-      msql -e "CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$p'; CREATE USER IF NOT EXISTS '$u'@'%' IDENTIFIED BY '$p'; GRANT ALL PRIVILEGES ON \`${esc}\_%\`.* TO '$u'@'localhost', '$u'@'%'; FLUSH PRIVILEGES;"
-    fi
-    apache_reload
+    ensure_mysql_user "$u" "$adm"
+    msql -e "ALTER USER '$u'@'localhost' IDENTIFIED BY '$p'; ALTER USER '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;" 2>/dev/null || true
+    apache_reload || echo "ATENCION: recargar apache fallo (apache2ctl -t); la cuenta si se creo" >&2
     echo ok
     ;;
 
   user:setpw)
-    [ $# -ge 2 ] || die "user:setpw <usuario> <pass>"
+    [ $# -ge 2 ] || die "user:setpw <usuario> <pass> [admin]"
     u="$1"; p="$2"; vuser "$u"; vpass "$p"
     log "user:setpw $u"
+    ensure_linux_user "$u"
     setpw_linux "$u" "$p"
+    ensure_mysql_user "$u" "${3:-}"
     msql -e "ALTER USER '$u'@'localhost' IDENTIFIED BY '$p'; ALTER USER '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;" 2>/dev/null || true
     echo ok
     ;;
@@ -206,7 +251,7 @@ case "$cmd" in
     [ $# -ge 1 ] || die "user:home <usuario>"
     u="$1"; vuser "$u"
     log "user:home $u"
-    id "$u" >/dev/null 2>&1 || useradd -m -s /bin/bash "$u"
+    ensure_linux_user "$u"
     install -d -o "$u" -g "$u" "/home/$u/public_html"
     if [ -z "$(ls -A "/home/$u/public_html" 2>/dev/null)" ]; then
       printf '<h1>Bienvenido</h1>\n' > "/home/$u/public_html/index.html"
@@ -238,7 +283,7 @@ case "$cmd" in
     [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder>"
     u="$1"; d="$2"; f="$3"; vuser "$u"; vdom "$d"; vrel "$f"
     log "vhost:add $u $d $f"
-    id "$u" >/dev/null 2>&1 || die "el usuario Linux '$u' no existe; ejecuta php cli.php home-linux (o setup-linux)"
+    ensure_linux_user "$u"
     mkdir -p "/home/$u/$f"
     if [ -z "$(ls -A "/home/$u/$f" 2>/dev/null)" ]; then
       printf '<h1>%s</h1>\n' "$d" > "/home/$u/$f/index.html"
@@ -339,17 +384,11 @@ case "$cmd" in
     ;;
 
   # --- Bases de datos --------------------------------------------------------
-  db:add)    [ $# -ge 1 ] || die "db:add <nombre> [usuario-dueño]"; vname "$1"; log "db:add $1"
+  db:add)    [ $# -ge 1 ] || die "db:add <nombre> [usuario-dueño] [admin]"; vname "$1"; log "db:add $1"
              msql -e "CREATE DATABASE IF NOT EXISTS \`$1\` CHARACTER SET utf8mb4"
              if [ $# -ge 2 ]; then vuser "$2"
-               g=''
-               if msql -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE User='$2' AND Host='localhost'" | grep -qx '1'; then g="'$2'@'localhost'"; fi
-               if msql -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE User='$2' AND Host='%'" | grep -qx '1'; then
-                 [ -z "$g" ] || g="$g, "
-                 g="${g}'$2'@'%'"
-               fi
-               [ -n "$g" ] || die "el usuario MySQL '$2' no tiene cuenta; creado con user:add o dbu:add"
-               msql -e "GRANT ALL PRIVILEGES ON \`$1\`.* TO $g; FLUSH PRIVILEGES;"
+               ensure_mysql_user "$2" "${3:-}"
+               msql -e "GRANT ALL PRIVILEGES ON \`$1\`.* TO '$2'@'localhost', '$2'@'%'; FLUSH PRIVILEGES;"
              fi
              echo ok ;;
   db:del)    [ $# -ge 1 ] || die "db:del <nombre>"; vname "$1"; log "db:del $1"
@@ -385,6 +424,7 @@ case "$cmd" in
     ;;
 
   db:admin)  [ $# -ge 1 ] || die "db:admin <usuario>"; vuser "$1"; log "db:admin $1 (todas las BD)"
+             ensure_mysql_user "$1" "admin"
              msql -e "GRANT ALL PRIVILEGES ON *.* TO \`$1\`@'localhost', \`$1\`@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
              echo ok ;;
   db:unadmin) [ $# -ge 1 ] || die "db:unadmin <usuario>"; vuser "$1"; log "db:unadmin $1"
@@ -392,6 +432,7 @@ case "$cmd" in
              echo ok ;;
 
   db:own)    [ $# -ge 1 ] || die "db:own <usuario>"; vuser "$1"; log "db:own $1 (solo sus BD)"
+             ensure_mysql_user "$1"
              esc=$(printf '%s' "$1" | sed 's/[_%]/\\&/g')
              msql -e "GRANT ALL PRIVILEGES ON \`${esc}\_%\`.* TO \`$1\`@'localhost', \`$1\`@'%'; FLUSH PRIVILEGES;"
              echo ok ;;
@@ -422,6 +463,7 @@ case "$cmd" in
   fs:list)
     [ $# -ge 2 ] || die "fs:list <usuario> <ruta-relativa> [hidden]"
     u="$1"; r="$2"; vuser "$u"
+    ensure_linux_user "$u"
     if [ -n "$r" ]; then vrel "$r"; fi   # ruta "" = raiz del home
     fs_check "$u" "$r"
     show_hidden=0
@@ -443,6 +485,7 @@ case "$cmd" in
   fs:cat)
     [ $# -ge 2 ] || die "fs:cat <usuario> <ruta-relativa> [maxbytes]"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
     maxb="${3:-2097152}"
     full="$(fs_full "$u" "$r")"
     [ -f "$full" ] || die "no es un archivo"
@@ -454,6 +497,7 @@ case "$cmd" in
   fs:write)
     [ $# -ge 2 ] || die "fs:write <usuario> <ruta-relativa>"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
     full="$(fs_full "$u" "$r")"
     mkdir -p "$(dirname "$full")"
     cat > "$full"          # contenido por stdin
@@ -465,6 +509,7 @@ case "$cmd" in
   fs:put)
     [ $# -ge 3 ] || die "fs:put <usuario> <ruta-relativa> <archivo-temporal>"
     u="$1"; r="$2"; src="$3"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
     [ -f "$src" ] || die "archivo temporal no existe"
     full="$(fs_full "$u" "$r")"
     mkdir -p "$(dirname "$full")"
@@ -477,6 +522,7 @@ case "$cmd" in
   fs:mkdir)
     [ $# -ge 2 ] || die "fs:mkdir <usuario> <ruta-relativa>"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
     mkdir -p "$(fs_full "$u" "$r")"
     fchown "$u" "$(fs_full "$u" "$r")"
     echo ok
@@ -485,6 +531,7 @@ case "$cmd" in
   fs:mv)
     [ $# -ge 3 ] || die "fs:mv <usuario> <origen-rel> <destino-rel>"
     u="$1"; s="$2"; d="$3"; vuser "$u"; vrel "$s"; vrel "$d"; fs_check "$u" "$s"; fs_check "$u" "$d"
+    ensure_linux_user "$u"
     src="$(fs_full "$u" "$s")"; dst="$(fs_full "$u" "$d")"
     [ -e "$src" ] || die "no existe"
     mkdir -p "$(dirname "$dst")"
@@ -497,6 +544,7 @@ case "$cmd" in
   fs:rm)
     [ $# -ge 2 ] || die "fs:rm <usuario> <ruta-relativa>"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
     full="$(fs_full "$u" "$r")"
     [ -e "$full" ] || die "no existe"
     if [ -d "$full" ]; then

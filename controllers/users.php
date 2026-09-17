@@ -110,7 +110,8 @@ function ctrl_users_update(array $p): void
     if ($pass !== '') {
         $pass = valid_panel_password($pass, 'Contraseña');
         db_run('UPDATE user SET password = ? WHERE id = ?', [password_hash($pass, PASSWORD_DEFAULT), $id]);
-        $rset = ctl_run(['user:setpw', $row['user'], $pass]);
+        $role = ($row['role'] ?? '') === 'admin' ? 'admin' : '';
+        $rset = ctl_run(['user:setpw', $row['user'], $pass, $role]);
         if ($rset['exit'] !== 0) {
             respond(false, 'Error del sistema: ' . e($rset['out']));
         }
