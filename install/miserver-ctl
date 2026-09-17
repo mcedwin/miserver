@@ -377,10 +377,12 @@ case "$cmd" in
     email="${2:-}"
     log "cert:issue $d"
     run_cert() {
+      # timeout 450: seguro anti-cuelgue por intento (certbot no puede quedarse
+      # colgado esperando respuesta de DNS/puerto 80 para siempre).
       if [ -n "$email" ]; then
-        certbot --apache --non-interactive --agree-tos --redirect -m "$email" -d "$d"
+        timeout 450 certbot --apache --non-interactive --agree-tos --redirect -m "$email" -d "$d"
       else
-        certbot --apache --non-interactive --agree-tos --redirect --register-unsafely-without-email -d "$d"
+        timeout 450 certbot --apache --non-interactive --agree-tos --redirect --register-unsafely-without-email -d "$d"
       fi
     }
     # Reintenta hasta ~4 min: el DNS del dominio recién creado puede tardar en

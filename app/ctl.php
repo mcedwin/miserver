@@ -111,9 +111,10 @@ function job_spawn(int $id, array $args): void
     $log = ctl_log_dir() . '/' . $id . '.log';
     @touch($log);
     // stdin desde /dev/null: evita que certbot/promesas se bloqueen leyendo
-    // de un pipe abierto. timeout: seguro anti-cuelgue (exit 124 visible) en
-    // vez de quedar "running" para siempre.
-    $inner = 'nohup sudo -n timeout 1500 ' . ctl_path()
+    // de un pipe abierto. El anti-cuelgue (timeout) va DENTRO del wrapper
+    // (cert:issue) porque aqui no podemos intercalar 'timeout': el sudoers
+    // solo autoriza 'sudo -n /usr/local/sbin/miserver-ctl' sin contraseña.
+    $inner = 'nohup sudo -n ' . ctl_path()
         . ' ' . implode(' ', array_map('escapeshellarg', $args))
         . ' </dev/null >> ' . escapeshellarg($log) . ' 2>&1';
     // Shell separado: lanza el comando en segundo plano y sale al instante.
