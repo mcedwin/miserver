@@ -40,12 +40,13 @@
     <?php endif; ?>
     <input class="form-control" name="git_url" placeholder="URL repositorio (https://github.com/usuario/proyecto)" required style="flex:2">
     <input class="form-control" name="git_branch" placeholder="rama (default: main)" value="main">
+    <input class="form-control" name="git_token" type="password" placeholder="token (solo si el repo es PRIVADO)" autocomplete="new-password">
     <input class="form-control" name="domain" placeholder="dominio o subdominio (ej: app.midominio.com)" required>
     <input class="form-control" name="folder" placeholder="carpeta destino (default: dominio)">
     <input class="form-control" name="project_path" placeholder="ruta proyecto dentro del repo (opcional, p.ej. src)">
     <input class="form-control" name="document_root" placeholder="DocumentRoot (vacío = auto: Laravel → public, WordPress/PHP → raíz)">
     <input class="form-control" name="php_version" placeholder="versión PHP (ej: 8.1, vacío = sistema)">
-    <p class="muted">Se clonará en <code>/home/&lt;usuario&gt;/&lt;carpeta&gt;</code>. Tipo detectado: <b>Laravel</b> (artisan + public/index.php → <code>/public</code>), <b>WordPress</b> (wp-config.php), <b>PHP</b> o <b>Otro</b>.</p>
+    <p class="muted">Se clonará en <code>/home/&lt;usuario&gt;/&lt;carpeta&gt;</code> y se desplegará automáticamente (Composer + caches). Las <b>migraciones</b> son manuales con el botón <b>Migrar</b>. Tipo detectado: <b>Laravel</b> (artisan + public/index.php → <code>/public</code>), <b>CodeIgniter 4</b> (public/index.php → <code>/public</code>), <b>WordPress</b> (wp-config.php) o <b>PHP</b>. Para repos privados indica tu token (PAT) en el campo token; se guarda cifrado.</p>
     <label class="check-line"><input type="checkbox" name="ssl" value="1" checked> &nbsp;SSL</label>
     <button class="btn btn-primary" type="submit">Clonar y crear</button>
   </div>
@@ -82,7 +83,8 @@
         </td>
         <td class="actions" style="justify-content:flex-end">
           <?php if ($isApp): ?>
-            <button class="btn btn-xs btn-info" data-post="<?= url('domains/'.$d['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" title="Composer + caches + migraciones (Laravel u otra app con composer)">Desplegar</button>
+            <button class="btn btn-xs btn-info" data-post="<?= url('domains/'.$d['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" title="Composer + caches (sin migraciones)">Desplegar</button>
+            <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>" title="Ejecutar migraciones (artisan migrate / spark migrate)">Migrar</button>
             <a class="btn btn-xs" href="<?= url('domains/'.$d['id'].'/env') ?>" title="Editar archivo .env">.env</a>
             <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/detect') ?>" data-csrf="<?= csrf_token() ?>" title="Re-detectar tipo de proyecto y actualizar DocumentRoot">Detectar</button>
           <?php endif; ?>

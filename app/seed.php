@@ -59,6 +59,7 @@ function db_ensure_domain_columns(): void
             'project_path'  => "ALTER TABLE `domain` ADD COLUMN `project_path` varchar(255) NOT NULL DEFAULT '' AFTER `git_branch`",
             'document_root' => "ALTER TABLE `domain` ADD COLUMN `document_root` varchar(255) NOT NULL DEFAULT '' AFTER `project_path`",
             'php_version'   => "ALTER TABLE `domain` ADD COLUMN `php_version` varchar(10) NOT NULL DEFAULT '' AFTER `document_root`",
+            'git_token'     => "ALTER TABLE `domain` ADD COLUMN `git_token` varchar(500) NOT NULL DEFAULT '' AFTER `php_version`",
         ];
         foreach ($adds as $col => $sql) {
             if (!in_array($col, $cols, true)) {

@@ -143,13 +143,20 @@ admin inicial se crea con `cli.php init` (o el wizard `/setup`).
 ### Aplicaciones desde GitHub
 
 Desde **Dominios → Crear aplicación desde GitHub** se lanza un flujo
-completo sobre una URL `https://...` (solo repos *públicos*, sin credenciales):
+completo sobre una URL `https://...`. Soporta **repos públicos y privados**:
+para los privados indica un token (p. ej. GitHub PAT) en el campo **Token**;
+se guarda cifrado (AES-256-GCM, `APP_SECRET`) y solo se usa al clonar, vía un
+credential-helper temporal con permisos 0600 que se borra después (nunca en la
+URL ni en la BD en claro):
 
-1. `git:clone <usuario> <carpeta> <URL> [rama]` — clon *shallow* (--depth 1)
-   en `/home/<usuario>/<carpeta>` usando la rama indicada (por defecto `main`).
+1. `git:clone <usuario> <carpeta> <URL> [rama] [token]` — clon *shallow*
+   (--depth 1) en `/home/<usuario>/<carpeta>` usando la rama indicada
+   (por defecto `main`) y el token si se aporta.
 2. `git:detect <usuario> <carpeta>` — detecta el tipo de proyecto y la carpeta
    web propuesta:
    - **Laravel** (`artisan` + `public/index.php`) → DocumentRoot `…/public`
+   - **CodeIgniter 4** (`public/index.php` sin `index.php` en raíz) → `…/public`;
+     **CodeIgniter 3** (`index.php` en raíz) → raíz
    - **WordPress** (`wp-config.php`) → DocumentRoot raíz (`…/carpeta`)
    - **PHP** (`index.php/html` o `public/index.php`) y **Node** → según caso
    - **Otro** → raíz, sin despliegue automático
@@ -157,20 +164,26 @@ completo sobre una URL `https://...` (solo repos *públicos*, sin credenciales):
    regenera el VirtualHost: `DocumentRoot` configurable (admite subcarpetas como
    `carpeta/public`) y un bloque `SetHandler` hacia `php<V>-fpm.sock` solo si
    existe el socket de FPM de esa versión (si no, se sirve con el PHP del sistema).
-4. Botón **Desplegar** → `app:deploy <usuario> <carpeta-proyecto> [php] [pasos]`
-   ejecutado como el dueño del proyecto (`runuser -u <usuario> -- env -C <dir>`),
-   con pasos: `all` (composer install + artisan caches + migrate), `composer`,
-   `cache` o `migrate`. Composer se usa del sistema o se auto-instala vía
-   `getcomposer.org` si falta. Se ejecuta como **job asíncrono** (ver `/jobs`).
+4. Tras crear, se desplega automáticamente (`app:deploy … all` = **Composer +
+   caches**, sin migraciones) y quedan dos botones:
+   - **Desplegar** → `app:deploy <usuario> <carpeta-proyecto> [php] all` —
+     Composer install + caches de artisan/CI, ejecutado como dueño del proyecto
+     (`runuser -u <usuario> -- env -C <dir>`). Composer del sistema o
+     auto-instalado vía `getcomposer.org` si falta.
+   - **Migrar BD** → `app:deploy … migrate` — migraciones explícitas
+     (`artisan migrate --force` en Laravel, `spark migrate` en CodeIgniter 4),
+     pensado para cuando ya hayas configurado la BD en el `.env`.
+   Ambos corren como **job asíncrono** (ver `/jobs`).
 
 Rutas web del módulo: `/domains/{id}/edit|update`, `/domains/{id}/env` (editor
 del `.env` de la aplicación, lectura/escritura privilegiada vía `fs:cat` /
-`fs:write`), `/domains/{id}/deploy`, `/domains/{id}/detect`.
+`fs:write`), `/domains/{id}/deploy`, `/domains/{id}/migrate`,
+`/domains/{id}/detect`.
 
 El esquema de `domain` incluye `project_type`, `git_url`, `git_branch`,
-`project_path`, `document_root` y `php_version` (instalaciones existentes: se
-añaden automáticamente al arrancar; también puedes ejecutar
-`php cli.php upgrade-schema`).
+`git_token` (cifrado), `project_path`, `document_root` y `php_version`
+(instalaciones existentes: se añaden automáticamente al arrancar; también puedes
+ejecutar `php cli.php upgrade-schema`).
 
 ---
 

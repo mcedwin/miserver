@@ -48,6 +48,7 @@ $ROUTES = [
     ['GET',  '/domains/{i}/env',    ['domains', 'env']],
     ['POST', '/domains/{i}/env',    ['domains', 'env_save']],
     ['POST', '/domains/{i}/deploy', ['domains', 'deploy']],
+    ['POST', '/domains/{i}/migrate', ['domains', 'migrate']],
     ['POST', '/domains/{i}/detect', ['domains', 'detect']],
     ['POST', '/domains/{i}/delete', ['domains', 'destroy']],
     ['POST', '/domains/{i}/toggle', ['domains', 'toggle']],

@@ -34,6 +34,11 @@ function ctrl_domains_store(): void
     if ($gitBranch === '') {
         $gitBranch = 'main';
     }
+    $gitToken = trim(post('git_token', '') ?? '');
+    if ($gitToken !== '' && !preg_match(RE_GITTOKEN, $gitToken)) {
+        respond(false, 'Token no válido (8-150 caracteres; solo letras, números, . _ : -).');
+    }
+    $gitTokenCipher = $gitToken !== '' ? enc($gitToken) : '';
     $projectPath = trim(post('project_path', '') ?? '');
     $documentRoot = trim(post('document_root', '') ?? '');
     $phpVersion = trim(post('php_version', '') ?? '');
@@ -63,15 +68,15 @@ function ctrl_domains_store(): void
         respond(false, 'Usuario no válido.');
     }
 
-    db_run('INSERT INTO domain (user_id, domain, folder, project_type, git_url, git_branch, project_path, document_root, php_version, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1)', [
-        $owner['id'], $domain, $folder, '', $gitUrl, $gitBranch, $projectPath, $documentRoot, $phpVersion,
+    db_run('INSERT INTO domain (user_id, domain, folder, project_type, git_url, git_branch, git_token, project_path, document_root, php_version, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1)', [
+        $owner['id'], $domain, $folder, '', $gitUrl, $gitBranch, $gitTokenCipher, $projectPath, $documentRoot, $phpVersion,
     ]);
     $id = (int) db_last_id();
 
     $type = '';
     if ($gitUrl !== '') {
         // 1) clonar -> 2) detectar tipo -> 3) proponer/confirmar DocumentRoot
-        $r = ctl_run(['git:clone', $owner['user'], $folder, $gitUrl, $gitBranch]);
+        $r = ctl_run(['git:clone', $owner['user'], $folder, $gitUrl, $gitBranch, $gitToken]);
         if ($r['exit'] !== 0) {
             db_run('DELETE FROM domain WHERE id = ?', [$id]); // rollback: poder reintentar
             respond(false, 'Error al clonar el repositorio: ' . e($r['out']));
@@ -101,8 +106,17 @@ function ctrl_domains_store(): void
         $jid = job_create('cert', $domain, (int) $owner['id']);
         job_spawn($jid, ['cert:issue', $domain, db_config()['le_email'] ?? '']);
     }
+
+    // Despliegue automático tras clonar: Composer + caches (sin migraciones;
+    // estas son un paso manual con el botón Migrar, cuando la BD esté lista).
+    if ($gitUrl !== '') {
+        $appDir = $folder . ($projectPath !== '' ? '/' . $projectPath : '');
+        $jid = job_create('deploy', $domain, (int) $owner['id']);
+        job_spawn($jid, ['app:deploy', $owner['user'], $appDir, $phpVersion, 'all']);
+    }
+
     respond(true, $gitUrl !== ''
-        ? 'Aplicación creada desde GitHub (tipo: ' . $type . ', DocumentRoot: /home/' . $owner['user'] . '/' . $documentRoot . ').'
+        ? 'Aplicación creada (tipo: ' . $type . ', DocumentRoot: /home/' . $owner['user'] . '/' . $documentRoot . '). Composer + caches en segundo plano; migraciones con el botón Migrar cuando conectes la BD.'
         : 'Dominio creado.', url('domains'));
 }
 
@@ -156,10 +170,20 @@ function ctrl_domains_update(array $p): void
     if ($phpVersion !== '' && !preg_match(RE_PHPVER, $phpVersion)) {
         respond(false, 'Versión de PHP no válida.');
     }
+    $gitToken = trim(post('git_token', '') ?? '');
+    if ($gitToken !== '' && !preg_match(RE_GITTOKEN, $gitToken)) {
+        respond(false, 'Token no válido.');
+    }
 
-    db_run('UPDATE domain SET project_type = ?, git_url = ?, git_branch = ?, project_path = ?, document_root = ?, php_version = ? WHERE id = ?', [
-        $type, $gitUrl, $gitBranch, $projectPath, $documentRoot, $phpVersion, (int) $p[0],
-    ]);
+    if ($gitToken !== '') {
+        db_run('UPDATE domain SET project_type = ?, git_url = ?, git_branch = ?, project_path = ?, document_root = ?, php_version = ?, git_token = ? WHERE id = ?', [
+            $type, $gitUrl, $gitBranch, $projectPath, $documentRoot, $phpVersion, enc($gitToken), (int) $p[0],
+        ]);
+    } else {
+        db_run('UPDATE domain SET project_type = ?, git_url = ?, git_branch = ?, project_path = ?, document_root = ?, php_version = ? WHERE id = ?', [
+            $type, $gitUrl, $gitBranch, $projectPath, $documentRoot, $phpVersion, (int) $p[0],
+        ]);
+    }
 
     $owner = domain_owner($row);
     if ($owner) {
@@ -233,7 +257,23 @@ function ctrl_domains_deploy(array $p): void
     $pv = (string) ($row['php_version'] ?? '');
     $jid = job_create('deploy', $row['domain'], (int) $owner['id']);
     job_spawn($jid, ['app:deploy', $owner['user'], $dir, $pv, 'all']);
-    respond(true, 'Despliegue iniciado (Composer + caches + migraciones según corresponda). Logs y estado en Tareas.', url('jobs'));
+    respond(true, 'Despliegue iniciado (Composer + caches). Migraciones: usa el botón Migrar.', url('jobs'));
+}
+
+function ctrl_domains_migrate(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $dir = domain_app_dir($row);
+    $pv = (string) ($row['php_version'] ?? '');
+    $jid = job_create('deploy', $row['domain'], (int) $owner['id']);
+    job_spawn($jid, ['app:deploy', $owner['user'], $dir, $pv, 'migrate']);
+    respond(true, 'Migraciones iniciadas (artisan migrate / spark migrate). Estado en Tareas.', url('jobs'));
 }
 
 function ctrl_domains_detect(array $p): void

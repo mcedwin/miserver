@@ -32,6 +32,11 @@
         <input class="form-control" id="f_branch" name="git_branch" value="<?= e((string)($row['git_branch'] ?? 'main')) ?>">
       </div>
       <div class="form-row">
+        <label for="f_token">Token (solo repos privados)</label>
+        <input class="form-control" id="f_token" name="git_token" value="" placeholder="<?= ($row['git_token'] ?? '') !== '' ? '(guardado — deja vacío para conservarlo)' : 'vacío si el repo es público' ?>" autocomplete="new-password">
+        <span class="muted" style="font-size:.8rem">Se almacena cifrado. Dejarlo vacío conserva el token actual.</span>
+      </div>
+      <div class="form-row">
         <label for="f_path">Ruta del proyecto dentro del repo</label>
         <input class="form-control" id="f_path" name="project_path" value="<?= e((string)($row['project_path'] ?? '')) ?>" placeholder="vacío = raíz (p.ej. src)">
       </div>
@@ -52,7 +57,8 @@
   </form>
   <div class="row-form mt-1">
     <?php if ($owner): ?>
-      <button class="btn btn-info" data-post="<?= url('domains/'.(int)$row['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar Composer + caches + migraciones ahora?">Desplegar (Composer + caches + migraciones)</button>
+      <button class="btn btn-info" data-post="<?= url('domains/'.(int)$row['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar Composer + caches ahora? (las migraciones van aparte)">Desplegar (Composer + caches)</button>
+      <button class="btn" data-post="<?= url('domains/'.(int)$row['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar las migraciones (artisan migrate / spark migrate) ahora?">Migrar BD</button>
     <?php endif; ?>
     <button class="btn" data-post="<?= url('domains/'.(int)$row['id'].'/detect') ?>" data-csrf="<?= csrf_token() ?>" title="Re-detectar tipo y actualizar DocumentRoot">Re-detectar tipo</button>
   </div>

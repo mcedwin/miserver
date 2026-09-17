@@ -84,6 +84,10 @@ vurl() {
 }
 vbranch() { [ $# -ge 1 ] || die "rama invalida"; [[ "$1" =~ $re_branch ]] || die "rama invalida"; }
 vver()    { [ $# -ge 1 ] || die "version PHP invalida"; [ -z "$1" ] && return 0; [[ "$1" =~ $re_ver ]] || die "version PHP invalida"; }
+# Token para repos privados (GitHub PAT / tokens HTTP): juego seguro, sin
+# espacios ni caracteres que rompan el credential-helper temporal.
+re_token='^[A-Za-z0-9._:-]{8,150}$'
+vtok()    { [ $# -ge 1 ] || die "token invalido"; [ -z "$1" ] && return 0; [[ "$1" =~ $re_token ]] || die "token invalido"; }
 
 fs_full() { echo "/home/$1/$2"; }
 
@@ -703,10 +707,12 @@ case "$cmd" in
 
   # --- Aplicaciones desde GitHub -------------------------------------------
   git:clone)
-    [ $# -ge 3 ] || die "git:clone <usuario> <carpeta> <URL> [rama]"
-    u="$1"; f="$2"; url="$3"; br="${4:-}"
+    [ $# -ge 3 ] || die "git:clone <usuario> <carpeta> <URL> [rama] [token]"
+    u="$1"; f="$2"; url="$3"; br="${4:-}"; tok="${5:-}"
     vuser "$u"; vrel "$f"; vurl "$url"
     [ -n "$br" ] && vbranch "$br"
+    [ -n "$tok" ] && vtok "$tok"
+    # El token NUNCA se registra (la operación se loguea sin credenciales).
     log "git:clone $u $f $url${br:+ -b $br}"
     ensure_linux_user "$u"
     fs_check "$u" "$f"
@@ -716,10 +722,22 @@ case "$cmd" in
     fi
     mkdir -p "$(dirname "$target")"
     export GIT_TERMINAL_PROMPT=0
+    helper=
+    trap 'rm -f "$helper"' EXIT
+    if [ -n "$tok" ]; then
+      # Credential-helper temporal (permisos 600) con el token; se borra al salir.
+      helper="$(mktemp)"
+      chmod 600 "$helper"
+      printf '#!/bin/sh\necho username=x-access-token\necho password=%s\n' "$tok" > "$helper"
+    fi
+    extra=(-c credential.helper=)
+    if [ -n "$helper" ]; then
+      extra=(-c credential.helper= -c credential.helper="$helper")
+    fi
     if [ -n "$br" ]; then
-      timeout 900 git -c credential.helper= clone --depth 1 --branch "$br" --single-branch -- "$url" "$target"
+      timeout 900 git "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target"
     else
-      timeout 900 git -c credential.helper= clone --depth 1 -- "$url" "$target"
+      timeout 900 git "${extra[@]}" clone --depth 1 -- "$url" "$target"
     fi
     # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
     chown -R "$u:$u" "$target" 2>/dev/null || true
@@ -751,11 +769,12 @@ case "$cmd" in
     echo "webroot|$webroot"
     ;;
 
-  # Despliegue post-clon (Laravel y apps con composer): composer, caches de
-  # artisan y migraciones, según corresponda. Todo como el DUEÑO del proyecto
-  # (los archivos del vhost se sirven con mod_ruid2 como ese usuario).
+  # Despliegue post-clon (Laravel, CodeIgniter y apps con composer). Todo como el
+  # DUEÑO del proyecto (los archivos del vhost se sirven con mod_ruid2 como ese
+  # usuario). La migración es SIEMPRE un paso aparte (migrate): el despliegue
+  # normal (all = composer + cache) NO migra por defecto.
   #   app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]
-  #   pasos: all (composer+cache+migrate) | composer | cache | migrate
+  #   pasos: all (composer+cache) | composer | cache | migrate
   app:deploy)
     [ $# -ge 2 ] || die "app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]"
     u="$1"; rel="$2"; pv="${3:-}"; steps="${4:-all}"
@@ -804,15 +823,18 @@ case "$cmd" in
         echo "[deploy] artisan view:cache ..."
         timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan view:cache 2>&1 || { echo "error: 'view:cache' falló" >&2; exit 1; }
       else
-        echo "[deploy] sin artisan, se omiten caches de Laravel"
+        echo "[deploy] sin artisan, se omiten caches de Laravel (CodeIgniter usa spark, carece de config:cache)"
       fi
     fi
-    if [ "$steps" = all ] || [ "$steps" = migrate ]; then
+    if [ "$steps" = migrate ]; then
       if [ -f "$target/artisan" ]; then
         echo "[deploy] artisan migrate --force ..."
         timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan migrate --force 2>&1 || { echo "error: 'migrate' falló" >&2; exit 1; }
+      elif [ -f "$target/spark" ]; then
+        echo "[deploy] spark migrate (CodeIgniter 4) ..."
+        timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" spark migrate 2>&1 || { echo "error: 'spark migrate' falló" >&2; exit 1; }
       else
-        echo "[deploy] sin artisan, se omiten migraciones"
+        echo "[deploy] sin artisan/spark, no hay migraciones que aplicar"
       fi
     fi
     echo ok

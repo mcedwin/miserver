@@ -21,7 +21,8 @@
     <textarea class="form-control mono" name="content" rows="24" spellcheck="false" style="width:100%;font-family:Consolas,monospace"><?= e($content) ?></textarea>
     <div class="row-form mt-1">
       <button class="btn btn-primary" type="submit"><svg class="ic"><use href="#i-check"/></svg> Guardar .env</button>
-      <button class="btn btn-info" data-post="<?= url('domains/'.(int)$row['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar Composer + caches + migraciones ahora?" title="Despliega el último estado guardado en el servidor">Desplegar</button>
+      <button class="btn btn-info" data-post="<?= url('domains/'.(int)$row['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar Composer + caches ahora?" title="Despliega el último estado guardado en el servidor">Desplegar</button>
+      <button class="btn" data-post="<?= url('domains/'.(int)$row['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar las migraciones (artisan migrate / spark migrate) ahora?">Migrar BD</button>
     </div>
   </form>
 </div>
