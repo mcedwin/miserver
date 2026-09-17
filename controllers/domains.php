@@ -630,46 +630,6 @@ function domain_docroot(array $row): string
     return (string) domain_effective($row)['document_root'];
 }
 
-/** Detecta el tipo de proyecto y su carpeta web propuesta (vía wrapper). */
-function domain_detect(string $user, string $folder, string $projectPath): array
-{
-    $rel = $folder;
-    if ($projectPath !== '') {
-        $rel = $folder . '/' . $projectPath;
-    }
-    $info = ['type' => 'other', 'webroot' => '.'];
-    $r = ctl_run(['git:detect', $user, $rel]);
-    if ($r['exit'] !== 0) {
-        return $info;
-    }
-    foreach (preg_split('/\r?\n/', $r['out']) as $line) {
-        if ($line === '') {
-            continue;
-        }
-        [$k, $v] = array_pad(explode('|', $line, 2), 2, '');
-        if ($k === 'type') {
-            $info['type'] = $v;
-        }
-        if ($k === 'webroot') {
-            $info['webroot'] = $v;
-        }
-    }
-    return $info;
-}
-
-/** DocumentRoot propuesto: carpeta + ruta del proyecto + carpeta web (p.ej. Laravel /public). */
-function domain_docroot_proposal(string $folder, string $projectPath, string $webroot): string
-{
-    $parts = [];
-    if ($projectPath !== '') {
-        $parts[] = $projectPath;
-    }
-    if ($webroot !== '' && $webroot !== '.') {
-        $parts[] = $webroot;
-    }
-    return $folder . ($parts ? '/' . implode('/', $parts) : '');
-}
-
 /**
  * Rollback de una creación de dominio/vhost a medias (best-effort): elimina la
  * fila, el vhost (conf + reload de Apache) y, si $removeFolder (flujo GitHub),
