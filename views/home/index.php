@@ -65,9 +65,10 @@ $u = current_user();
   <div class="list-group scroll-y" style="max-height:180px">
     <?php foreach ($backups as $b): ?>
       <div class="list-row">
-        <span class="mono" title="<?= e(implode(' ',$b)) ?>"><?= e($b[1] ?? '?') ?></span>
-        <span><?= e($b[2] ?? '') ?></span>
-        <a class="btn btn-sm" href="<?= url('download?f=' . urlencode($b[count($b)-1] ?? '')) ?>">descargar</a>
+          <span class="mono" title="<?= e(implode(' ',$b)) ?>"><?= e($b[1] ?? '?') ?></span>
+          <span><?= e($b[2] ?? '') ?></span>
+          <a class="btn btn-sm" href="<?= url('download?f=' . urlencode($b[count($b)-1] ?? '')) ?>">descargar</a>
+          <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar este backup?" data-post="<?= url('backup/delete?f=' . urlencode($b[count($b)-1] ?? '')) ?>">Eliminar</button>
       </div>
     <?php endforeach; ?>
   </div>

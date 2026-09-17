@@ -10,6 +10,9 @@ function ctrl_domains_index(): void
     } else {
         $rows = db_all('SELECT d.*, u.user AS uname FROM domain d JOIN user u ON u.id = d.user_id WHERE d.user_id = ? ORDER BY d.domain', [$u['id']]);
     }
+    foreach ($rows as $k => $row) {
+        $rows[$k]['ssl_info'] = domain_ssl_info((string) $row['domain']);
+    }
     $data = [
         'title' => 'Dominios',
         'active' => 'domains',
@@ -130,8 +133,28 @@ function ctrl_domains_edit(array $p): void
         'active' => 'domains',
         'row' => $row,
         'owner' => domain_owner($row),
+        'ssl_info' => domain_ssl_info((string) $row['domain']),
     ];
     render('domains/edit', $data);
+}
+
+/** Consulta el estado del certificado SSL vía wrapper (live/ no es legible por PHP). */
+function domain_ssl_info(string $domain): array
+{
+    $info = ['status' => 'missing', 'exp' => '', 'days' => 0];
+    if ($domain === '') {
+        return $info;
+    }
+    $r = ctl_run(['cert:status', $domain]);
+    if ($r['exit'] === 0) {
+        $parts = explode('|', trim($r['out']));
+        if (count($parts) >= 2 && $parts[0] === 'status') {
+            $info['status'] = $parts[1];
+            $info['exp'] = $parts[2] ?? '';
+            $info['days'] = isset($parts[3]) ? (int) $parts[3] : 0;
+        }
+    }
+    return $info;
 }
 
 function ctrl_domains_update(array $p): void
@@ -194,6 +217,24 @@ function ctrl_domains_update(array $p): void
         }
     }
     respond(true, 'Aplicación actualizada y VirtualHost regenerado.', url('domains'));
+}
+
+function ctrl_domains_logs(array $p): void
+{
+    $u = require_login();
+    $row = domain_row_or_fail($p[0], $u);
+    $type = in_array(query('type', ''), ['error', 'access'], true) ? query('type') : 'error';
+    $lines = min(max(query_int('lines', 200), 1), 10000);
+    $r = ctl_run(['vhost:logs', (string) $row['domain'], $type, (string) $lines]);
+    $log = $r['exit'] === 0 ? $r['out'] : 'Error al leer el log: ' . trim($r['out']);
+    render('domains/logs', [
+        'title' => 'Logs de ' . $row['domain'],
+        'active' => 'domains',
+        'row' => $row,
+        'type' => $type,
+        'lines' => $lines,
+        'log' => $log,
+    ]);
 }
 
 function ctrl_domains_env(array $p): void
@@ -313,6 +354,60 @@ function ctrl_domains_detect(array $p): void
         respond(false, 'No se pudo regenerar el vhost: ' . e($r['out']));
     }
     respond(true, 'Tipo: ' . $type . ' — DocumentRoot: /home/' . $owner['user'] . '/' . $docroot, url('domains'));
+}
+
+function ctrl_domains_reinstall(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $gitUrl = trim($row['git_url'] ?? '');
+    if ($gitUrl === '') {
+        respond(false, 'Este dominio no fue creado desde un repositorio Git.');
+    }
+    $folder = (string) ($row['folder'] ?? '');
+    $projectPath = (string) ($row['project_path'] ?? '');
+    $appDir = domain_app_dir($row);
+    $envRel = $appDir . '/.env';
+
+    // Conservar .env actual si existe.
+    $envBackup = '';
+    $re = ctl_run_raw(['fs:cat', $owner['user'], $envRel, '2097152']);
+    if ($re['exit'] === 0 && $re['err'] === '') {
+        $envBackup = $re['out'];
+    }
+
+    // Borrar carpeta del clon anterior.
+    $rr = ctl_run(['fs:rmtree', $owner['user'], $folder]);
+    if ($rr['exit'] !== 0) {
+        respond(false, 'Error al borrar la carpeta anterior: ' . e($rr['out']));
+    }
+
+    // Clonar de nuevo.
+    $gitToken = '';
+    if (!empty($row['git_token'])) {
+        $gitToken = dec($row['git_token']);
+    }
+    $cr = ctl_run(['git:clone', $owner['user'], $folder, $gitUrl, (string) ($row['git_branch'] ?: 'main'), $gitToken]);
+    if ($cr['exit'] !== 0) {
+        respond(false, 'Error al clonar el repositorio: ' . e($cr['out']));
+    }
+
+    // Restaurar .env.
+    if ($envBackup !== '') {
+        ctl_run(['fs:write', $owner['user'], $envRel], $envBackup);
+    }
+
+    // Regenerar vhost y desplegar.
+    ctl_run(['vhost:add', $owner['user'], $row['domain'], $folder, (string) $row['document_root'], (string) $row['php_version']]);
+    $jid = job_create('deploy', $row['domain'], (int) $owner['id']);
+    job_spawn($jid, ['app:deploy', $owner['user'], $appDir, (string) $row['php_version'], 'all']);
+
+    respond(true, 'Reinstalación iniciada. Se conservó el .env anterior si existía.', url('domains'));
 }
 
 function ctrl_domains_destroy(array $p): void

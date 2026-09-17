@@ -72,9 +72,17 @@
         <td class="mono"><?= e(domain_docroot($d)) ?></td>
         <td><span class="badge badge-sm <?= ($d['project_type'] ?? '') ? 'badge-ok' : 'badge-off' ?>"><?= e($d['project_type'] ?: '—') ?></span></td>
         <td>
-          <button class="btn btn-xs <?= $d['ssl']?'btn-info':'btn-light' ?>" data-post="<?= url('domains/'.$d['id'].'/ssl') ?>" data-csrf="<?= csrf_token() ?>">
-            <?= e($d['ssl'] ? 'SSL activo' : 'Activar SSL') ?>
+          <?php $ssi = $d['ssl_info'] ?? ['status' => 'missing', 'exp' => '', 'days' => 0]; ?>
+          <button class="btn btn-xs <?= $d['ssl'] && ($ssi['status'] ?? '') === 'ok' ? 'btn-info' : 'btn-light' ?>" data-post="<?= url('domains/'.$d['id'].'/ssl') ?>" data-csrf="<?= csrf_token() ?>">
+            <?php if (($ssi['status'] ?? '') === 'ok'): ?>
+              SSL <?= (int)($ssi['days'] ?? 0) ?>d
+            <?php else: ?>
+              <?= e($d['ssl'] ? 'SSL pendiente' : 'Activar SSL') ?>
+            <?php endif; ?>
           </button>
+          <?php if (($ssi['status'] ?? '') === 'ok' && ($ssi['exp'] ?? '') !== ''): ?>
+            <span class="muted" style="font-size:.75rem;display:block">vence <?= e($ssi['exp']) ?></span>
+          <?php endif; ?>
         </td>
         <td>
           <button class="btn btn-xs <?= $d['enabled']?'btn-info':'btn-light' ?>" data-post="<?= url('domains/'.$d['id'].'/toggle') ?>" data-csrf="<?= csrf_token() ?>">
@@ -87,8 +95,10 @@
             <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>" title="Ejecutar migraciones (artisan migrate / spark migrate)">Migrar</button>
             <a class="btn btn-xs" href="<?= url('domains/'.$d['id'].'/env') ?>" title="Editar archivo .env">.env</a>
             <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/detect') ?>" data-csrf="<?= csrf_token() ?>" title="Re-detectar tipo de proyecto y actualizar DocumentRoot">Detectar</button>
+            <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/reinstall') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Borrar la carpeta y volver a clonar <?= e(basename($d['git_url'] ?? '')) ?>? Se conserva el .env." title="Volver a clonar el repo desde cero">Reinstalar</button>
           <?php endif; ?>
           <a class="btn btn-xs" href="<?= url('domains/'.$d['id'].'/edit') ?>" title="Editar configuración de aplicación">Editar</a>
+          <a class="btn btn-xs" href="<?= url('domains/'.$d['id'].'/logs') ?>" title="Ver logs de Apache">Logs</a>
           <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/dns') ?>" data-csrf="<?= csrf_token() ?>" title="Re-registrar DNS en DigitalOcean">DNS</button>
           <button class="btn btn-xs btn-danger" data-post="<?= url('domains/'.$d['id'].'/delete') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar dominio, vhost y certificado?">Eliminar</button>
         </td>

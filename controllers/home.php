@@ -66,3 +66,18 @@ function ctrl_home_download(): void
     readfile($real);
     exit;
 }
+
+function ctrl_home_backup_delete(): void
+{
+    require_login();
+    csrf_check();
+    $f = query('f', '');
+    if ($f === '' || !preg_match('/^[a-zA-Z0-9._-]+\.(tar\.gz|sql\.gz|gz)$/', $f)) {
+        respond(false, 'Archivo no válido.');
+    }
+    $r = ctl_run(['backup:del', $f]);
+    if ($r['exit'] !== 0) {
+        respond(false, 'Error al eliminar el backup: ' . e($r['out']));
+    }
+    respond(true, 'Backup eliminado.', url('disk'));
+}

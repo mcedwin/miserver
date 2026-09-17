@@ -3,6 +3,14 @@
 <div class="card mt-1">
   <h3>Editar aplicación <span class="mono"><?= e($row['domain']) ?></span></h3>
   <p class="muted">La configuración (tipo, ruta del proyecto, DocumentRoot, PHP y dominio) se guarda para regenerar el VirtualHost de Apache. <a href="<?= url('domains/'.(int)$row['id'].'/env') ?>">Editar .env</a> · este editor no toca el sistema de contraseñas del panel.</p>
+  <?php $ssi = $ssl_info ?? ['status' => 'missing', 'exp' => '', 'days' => 0]; ?>
+  <?php if (($ssi['status'] ?? '') === 'ok'): ?>
+    <div class="alert-ok alert mb-1">Certificado SSL válido · vence el <?= e($ssi['exp']) ?> (<?= (int)($ssi['days'] ?? 0) ?> días restantes).</div>
+  <?php elseif (($ssi['status'] ?? '') === 'invalid'): ?>
+    <div class="alert alert-warn mb-1">Certificado SSL presente pero inválido. <button class="btn btn-sm" data-post="<?= url('domains/'.(int)$row['id'].'/ssl') ?>" data-csrf="<?= csrf_token() ?>">Reemitir</button></div>
+  <?php else: ?>
+    <div class="alert mb-1">Sin certificado SSL. <button class="btn btn-sm" data-post="<?= url('domains/'.(int)$row['id'].'/ssl') ?>" data-csrf="<?= csrf_token() ?>">Activar SSL</button></div>
+  <?php endif; ?>
   <form method="post" action="<?= url('domains/'.(int)$row['id'].'/update') ?>" data-ajax="1">
     <?= csrf_field() ?>
     <div class="grid-2">

@@ -48,6 +48,7 @@ function menu_items(): array
     ];
     if (($u['role'] ?? '') === 'admin') {
         $items[] = ['active' => 'users', 'url' => 'users', 'icon' => 'users', 'label' => 'Usuarios'];
+        $items[] = ['active' => 'security', 'url' => 'security', 'icon' => 'x', 'label' => 'Seguridad'];
     }
     $items[] = ['active' => 'dbs', 'url' => 'dbs', 'icon' => 'database', 'label' => 'Bases de datos'];
     $items[] = ['active' => 'domains', 'url' => 'domains', 'icon' => 'globe', 'label' => 'Dominios'];

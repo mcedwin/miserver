@@ -170,6 +170,20 @@ function ctrl_files_upload(): void
     respond(true, 'Archivo subido.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($rel)));
 }
 
+function ctrl_files_unzip(): void
+{
+    $u = require_login();
+    csrf_check();
+    $ctx = ctx_user_from_post($u);
+    $rel = file_rel(post('p', ''), $ctx);
+    if ($rel === null || $rel === '') { respond(false, 'Ruta no válida.'); }
+    if (!preg_match('/\.(zip|ZIP)$/i', $rel)) { respond(false, 'Solo se pueden extraer archivos ZIP.'); }
+    $r = ctl_run(['fs:unzip', $ctx['user'], $rel]);
+    if ($r['exit'] !== 0) { respond(false, 'Error al extraer: ' . e($r['out'])); }
+    $parent = dirname($rel);
+    respond(true, 'ZIP extraído.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent === '.' ? '' : $parent)));
+}
+
 function ctrl_files_delete(): void
 {
     $u = require_login();
@@ -201,6 +215,34 @@ function ctrl_files_rename(): void
     $r = ctl_run(['fs:mv', $ctx['user'], $rel, $destRel]);
     if ($r['exit'] !== 0) { respond(false, 'Error al renombrar: ' . e($r['out'])); }
     respond(true, 'Renombrado.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent)));
+}
+
+function ctrl_files_chmod(): void
+{
+    $u = require_login();
+    csrf_check();
+    $ctx = ctx_user_from_post($u);
+    $rel = file_rel(post('p', ''), $ctx);
+    $mode = trim(post('mode', ''));
+    if ($rel === null || $rel === '') { respond(false, 'Ruta no válida.'); }
+    if (!preg_match('/^[0-7]{3}$/', $mode)) { respond(false, 'Modo no válido (ej: 755, 644).'); }
+    $r = ctl_run(['fs:chmod', $ctx['user'], $rel, $mode]);
+    if ($r['exit'] !== 0) { respond(false, 'Error al cambiar permisos: ' . e($r['out'])); }
+    $parent = dirname($rel);
+    respond(true, 'Permisos actualizados.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent === '.' ? '' : $parent)));
+}
+
+function ctrl_files_chown(): void
+{
+    $u = require_login();
+    csrf_check();
+    $ctx = ctx_user_from_post($u);
+    $rel = file_rel(post('p', ''), $ctx);
+    if ($rel === null || $rel === '') { respond(false, 'Ruta no válida.'); }
+    $r = ctl_run(['fs:chown', $ctx['user'], $rel]);
+    if ($r['exit'] !== 0) { respond(false, 'Error al cambiar propietario: ' . e($r['out'])); }
+    $parent = dirname($rel);
+    respond(true, 'Propietario restaurado a ' . e($ctx['user']) . '.', url('files?u=' . (int) $ctx['id'] . '&p=' . urlencode($parent === '.' ? '' : $parent)));
 }
 
 function ctrl_files_raw(): void

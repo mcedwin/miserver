@@ -64,7 +64,12 @@
           <?php if ($f['editable']): ?>
             <a class="btn btn-sm" href="<?= url('files/edit?u='.$ctx['id'].'&p='.urlencode($rel=== '' ? $f['name'] : $rel.'/'.$f['name'])) ?>"><svg class="ic-sm"><use href="#i-edit"/></svg> Editar</a>
           <?php endif; ?>
+          <?php if (preg_match('/\.(zip|ZIP)$/i', $f['name'])): ?>
+            <button class="btn btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Extraer <?= e($f['name']) ?> en esta carpeta?" data-post="<?= url('files/unzip') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $f['name'] : $rel.'/'.$f['name']) ?>">Extraer ZIP</button>
+          <?php endif; ?>
           <a class="btn btn-sm" href="<?= url('files/raw?u='.$ctx['id'].'&p='.urlencode($rel=== '' ? $f['name'] : $rel.'/'.$f['name'])) ?>"><svg class="ic-sm"><use href="#i-download"/></svg> Bajar</a>
+          <button class="btn btn-sm" data-csrf="<?= csrf_token() ?>" data-prompt="Permisos octales (ej: 644):" data-prompt-name="mode" data-post="<?= url('files/chmod') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $f['name'] : $rel.'/'.$f['name']) ?>">Permisos</button>
+          <button class="btn btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Restaurar propietario a <?= e($ctx['user']) ?>?" data-post="<?= url('files/chown') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $f['name'] : $rel.'/'.$f['name']) ?>">Propietario</button>
           <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar <?= e($f['name']) ?>?" data-post="<?= url('files/delete') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $f['name'] : $rel.'/'.$f['name']) ?>">Eliminar</button>
         </td>
       </tr>

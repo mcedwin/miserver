@@ -26,6 +26,21 @@ function ctrl_jobs_poll(): void
     json_out(['ok' => true, 'jobs' => $out]);
 }
 
+function ctrl_jobs_show(array $p): void
+{
+    require_login();
+    $job = db_one('SELECT * FROM job WHERE id = ?', [(int) $p[0]]);
+    if (!$job) {
+        flash('err', 'Tarea no encontrada.');
+        redirect('jobs');
+    }
+    render('jobs/show', [
+        'title' => 'Tarea #' . (int) $job['id'],
+        'active' => 'jobs',
+        'job' => $job,
+    ]);
+}
+
 function ctrl_jobs_clear(): void
 {
     require_login();

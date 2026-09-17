@@ -440,6 +440,37 @@ case "$cmd" in
     echo ok
     ;;
 
+  vhost:logs)
+    [ $# -ge 1 ] || die "vhost:logs <dominio> [error|access] [lineas]"
+    d="$1"; type="${2:-error}"; lines="${3:-200}"
+    vdom "$d"
+    [ "$type" = "error" ] || [ "$type" = "access" ] || die "tipo debe ser error o access"
+    case "$lines" in ''|*[!0-9]*) lines=200 ;; esac
+    [ "$lines" -le 10000 ] || lines=10000
+    f="/var/log/apache2/${d}-${type}.log"
+    [ -f "$f" ] || { echo "(sin log)"; exit 0; }
+    tail -n "$lines" "$f"
+    ;;
+
+  cert:status)
+    [ $# -ge 1 ] || die "cert:status <dominio>"
+    d="$1"; vdom "$d"
+    cert="/etc/letsencrypt/live/$d/fullchain.pem"
+    if [ ! -f "$cert" ]; then
+      echo "status|missing"
+      exit 0
+    fi
+    exp="$(openssl x509 -in "$cert" -noout -enddate 2>/dev/null | cut -d= -f2 || true)"
+    if [ -z "$exp" ]; then
+      echo "status|invalid"
+      exit 0
+    fi
+    exp_epoch="$(date -d "$exp" +%s 2>/dev/null || echo 0)"
+    now_epoch="$(date +%s)"
+    days=$(( (exp_epoch - now_epoch) / 86400 ))
+    echo "status|ok|$exp|$days"
+    ;;
+
   cert:issue)
     [ $# -ge 1 ] || die "cert:issue <dominio> [email]"
     d="$1"; vdom "$d"
@@ -665,6 +696,43 @@ case "$cmd" in
     echo ok
     ;;
 
+  fs:unzip)
+    [ $# -ge 2 ] || die "fs:unzip <usuario> <ruta-zip-relativa>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
+    full="$(fs_full "$u" "$r")"
+    [ -f "$full" ] || die "no existe"
+    case "$r" in *.zip|*.ZIP) ;; *) die "solo archivos .zip" ;; esac
+    dir="$(dirname "$full")"
+    if ! command -v unzip >/dev/null 2>&1; then
+      die "unzip no esta instalado (apt install unzip)"
+    fi
+    runuser -u "$u" -- env -C "$dir" unzip -o -q -- "$full" >/dev/null 2>&1 || die "error al extraer el zip"
+    echo ok
+    ;;
+
+  fs:chmod)
+    [ $# -ge 3 ] || die "fs:chmod <usuario> <ruta> <modo-octal>"
+    u="$1"; r="$2"; mode="$3"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
+    case "$mode" in ''|*[!0-7]*) die "modo debe ser octal de 3 digitos (p.ej. 755)" ;; esac
+    [ ${#mode} -eq 3 ] || die "modo debe ser octal de 3 digitos (p.ej. 755)"
+    full="$(fs_full "$u" "$r")"
+    [ -e "$full" ] || die "no existe"
+    chmod "$mode" "$full"
+    echo ok
+    ;;
+
+  fs:chown)
+    [ $# -ge 2 ] || die "fs:chown <usuario> <ruta>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
+    full="$(fs_full "$u" "$r")"
+    [ -e "$full" ] || die "no existe"
+    chown "$u:$u" "$full"
+    echo ok
+    ;;
+
   # --- Disco: uso por carpeta (dentro del home, sin seguir symlinks) -------
   du:users)
     # Homes de todos los usuarios con su tamaño total en bytes.
@@ -717,6 +785,19 @@ case "$cmd" in
     dir="/var/backups/miserver"
     [ -d "$dir" ] || { echo "file|0|-|sin-backups"; exit 0; }
     find "$dir" -maxdepth 1 -type f -printf "file|%s|%TY-%Tm-%Td %TH:%TM|%f\n" | sort -k4
+    ;;
+
+  backup:del)
+    [ $# -ge 1 ] || die "backup:del <archivo>"
+    dir="/var/backups/miserver"
+    f="$1"
+    case "$f" in
+      *[!a-zA-Z0-9._-]*|*..*|"") die "nombre de archivo no valido" ;;
+    esac
+    full="$dir/$f"
+    [ -f "$full" ] || die "archivo no encontrado"
+    rm -f -- "$full"
+    echo ok
     ;;
 
   # --- Backups manuales (un solo respaldo: homes + bases de datos) -----------
@@ -918,6 +999,36 @@ case "$cmd" in
       else
         echo "[deploy] sin artisan/spark, no hay migraciones que aplicar"
       fi
+    fi
+    echo ok
+    ;;
+
+  security:ban)
+    [ $# -ge 1 ] || die "security:ban <ip>"
+    ip="$1"
+    case "$ip" in
+      *[!0-9.:]*) die "ip no valida" ;;
+    esac
+    if command -v ufw >/dev/null 2>&1; then
+      ufw deny from "$ip" to any port 80,443 >/dev/null 2>&1 || true
+      ufw deny from "$ip" to any port 22 >/dev/null 2>&1 || true
+    elif command -v iptables >/dev/null 2>&1; then
+      iptables -C INPUT -s "$ip" -j DROP >/dev/null 2>&1 || iptables -I INPUT 1 -s "$ip" -j DROP
+    else
+      die "no hay firewall disponible (ufw/iptables)"
+    fi
+    echo ok
+    ;;
+
+  security:unban)
+    [ $# -ge 1 ] || die "security:unban <ip>"
+    ip="$1"
+    case "$ip" in *[!0-9.:]*) die "ip no valida" ;; esac
+    if command -v ufw >/dev/null 2>&1; then
+      ufw delete deny from "$ip" to any port 80,443 >/dev/null 2>&1 || true
+      ufw delete deny from "$ip" to any port 22 >/dev/null 2>&1 || true
+    elif command -v iptables >/dev/null 2>&1; then
+      iptables -D INPUT -s "$ip" -j DROP >/dev/null 2>&1 || true
     fi
     echo ok
     ;;

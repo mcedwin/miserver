@@ -13,14 +13,14 @@
   <tbody>
     <?php foreach ($jobs as $j): ?>
       <tr data-job="<?= (int)$j['id'] ?>">
-        <td><?= (int)$j['id'] ?></td>
+        <td><a href="<?= url('jobs/'.$j['id']) ?>">#<?= (int)$j['id'] ?></a></td>
         <td class="mono"><?= e($j['kind']) ?></td>
         <td><?= e($j['target']) ?></td>
         <td><span class="badge badge-<?= $j['status']==='done'?'ok':($j['status']==='failed'?'err':'warn') ?> jstatus"><?= e($j['status']) ?></span></td>
         <td class="muted"><?= e($j['started_at'] ?? $j['created_at']) ?></td>
         <td>
           <?php if ($j['output']): ?>
-            <details><summary>ver salida</summary><pre class="job-output"><?= e($j['output']) ?></pre></details>
+            <a class="btn btn-xs" href="<?= url('jobs/'.$j['id']) ?>">ver salida</a>
           <?php endif; ?>
         </td>
       </tr>

@@ -66,7 +66,8 @@
     if (promptMsg) {
       var val = window.prompt(promptMsg);
       if (val === null || val.trim() === '') return;
-      data.name = val.trim();
+      var promptName = btn.getAttribute('data-prompt-name') || 'name';
+      data[promptName] = val.trim();
     }
     for (var i = 0; i < btn.attributes.length; i++) {
       var at = btn.attributes[i];

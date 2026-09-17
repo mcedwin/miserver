@@ -18,6 +18,7 @@
           <span><?= e($b[1] ?? '') ?> bytes</span>
           <span class="muted"><?= e($b[2] ?? '') ?></span>
           <a class="btn btn-sm" href="<?= url('download?f=' . urlencode($b[count($b) - 1] ?? '')) ?>">descargar</a>
+          <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar este backup?" data-post="<?= url('backup/delete?f=' . urlencode($b[count($b) - 1] ?? '')) ?>">Eliminar</button>
         </div>
       <?php endforeach; ?>
     </div>
