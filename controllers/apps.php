@@ -230,6 +230,19 @@ function ctrl_apps_env(array $p): void
         $direct = @file_get_contents($directPath);
         if ($direct !== false && $direct !== '') {
             $r = ['exit' => 0, 'out' => $direct];
+        } elseif (($fh = @fopen($directPath, 'r')) !== false) {
+            $direct = '';
+            while (!feof($fh)) {
+                $chunk = @fread($fh, 8192);
+                if ($chunk === false) {
+                    break;
+                }
+                $direct .= $chunk;
+            }
+            fclose($fh);
+            if ($direct !== '') {
+                $r = ['exit' => 0, 'out' => $direct];
+            }
         }
     }
     if ($r['exit'] === 0) {

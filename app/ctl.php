@@ -104,7 +104,10 @@ function ctl_run_read(array $args): array
     if (!is_resource($proc)) {
         return ['exit' => 127, 'out' => '', 'err' => 'no se pudo ejecutar el wrapper'];
     }
-    // Mantenemos stdin abierto mientras leemos; cierra después.
+    // Algunos entornos requieren que stdin tenga datos para que sudo ejecute el comando.
+    fwrite($pipes[0], "\n");
+    fflush($pipes[0]);
+    // Mantenemos stdin abierto durante la lectura; cierra después.
     $out = stream_get_contents($pipes[1]);
     $err = stream_get_contents($pipes[2]);
     fclose($pipes[0]);
