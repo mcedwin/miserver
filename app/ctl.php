@@ -110,8 +110,12 @@ function job_spawn(int $id, array $args): void
 {
     $log = ctl_log_dir() . '/' . $id . '.log';
     @touch($log);
-    $inner = 'nohup sudo -n ' . ctl_path() . ' ' . implode(' ', array_map('escapeshellarg', $args))
-        . ' >> ' . escapeshellarg($log) . ' 2>&1';
+    // stdin desde /dev/null: evita que certbot/promesas se bloqueen leyendo
+    // de un pipe abierto. timeout: seguro anti-cuelgue (exit 124 visible) en
+    // vez de quedar "running" para siempre.
+    $inner = 'nohup sudo -n timeout 1500 ' . ctl_path()
+        . ' ' . implode(' ', array_map('escapeshellarg', $args))
+        . ' </dev/null >> ' . escapeshellarg($log) . ' 2>&1';
     // Shell separado: lanza el comando en segundo plano y sale al instante.
     $full = '( ' . $inner . '; echo "MISERVER_EXIT=$?" >> ' . escapeshellarg($log) . ' ) &';
     $proc = @proc_open($full, [

@@ -16,6 +16,7 @@ set -euo pipefail
 
 LOG_DIR=/var/log/miserver
 mkdir -p "$LOG_DIR"
+install -d -o miserver -g miserver -m 0770 "$LOG_DIR/jobs" 2>/dev/null || true
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG_DIR/ops.log"; }
 die() { echo "error: $*" >&2; exit 2; }
 
@@ -104,7 +105,11 @@ ensure_linux_user() { # $1=usuario
   local u="$1"
   vuser "$u"
   if ! id "$u" >/dev/null 2>&1; then
-    useradd -m -s /bin/bash "$u"
+    if getent group "$u" >/dev/null 2>&1; then
+      useradd -m -s /bin/bash -g "$u" "$u"
+    else
+      useradd -m -s /bin/bash "$u"
+    fi
     passwd -l "$u" >/dev/null 2>&1 || true
     echo "ATENCION: la cuenta Linux '$u' no existia y se ha creado; asigna su clave en panel -> Ajustes -> Mi contrasena." >&2
   fi
@@ -244,6 +249,20 @@ case "$cmd" in
     setpw_linux "$u" "$p"
     ensure_mysql_user "$u" "${3:-}"
     msql -e "ALTER USER '$u'@'localhost' IDENTIFIED BY '$p'; ALTER USER '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;" 2>/dev/null || true
+    echo ok
+    ;;
+
+  # Sincroniza SOLO la clave MySQL con la del panel (autocura si la cuenta se
+  # creo con clave temporal o quedo desincronizada). No toca la cuenta Linux.
+  user:syncpw)
+    [ $# -ge 2 ] || die "user:syncpw <usuario> <pass> [admin]"
+    u="$1"; p="$2"; vuser "$u"; vpass "$p"
+    log "user:syncpw $u"
+    ensure_mysql_user "$u" "${3:-}"
+    if ! msql -e "ALTER USER '$u'@'localhost' IDENTIFIED BY '$p'; ALTER USER '$u'@'%' IDENTIFIED BY '$p'; FLUSH PRIVILEGES;" 2>/dev/null; then
+      echo "ATENCION: no se pudo sincronizar la clave MySQL de '$u' (¿mysql caido?)" >&2
+      exit 1
+    fi
     echo ok
     ;;
 

@@ -34,6 +34,11 @@ function ctrl_login_attempt(): void
             'name' => $row['name'],
             'role' => $row['role'],
         ]);
+        // Invariante: la clave MySQL de la cuenta del panel = la clave del panel.
+        // Se (re)sincroniza en cada login: autocura la cuenta MySQL si se había
+        // creado con clave temporal o quedó desincronizada. El fallo no bloquea
+        // el acceso (el panel puede seguir sin acceso MySQL momentáneo).
+        ctl_run(['user:syncpw', $row['user'], $password, $row['role'] === 'admin' ? 'admin' : '']);
         db_run('UPDATE user SET lastip = ?, last_login = NOW() WHERE id = ?', [$ip, $row['id']]);
         respond(true, 'Bienvenido.', url('home'));
     }

@@ -210,6 +210,11 @@ log "6/9 Instalando wrapper privilegiado + sudoers."
 # ---------------------------------------------------------------------------
 install -m 0755 /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl
 
+# Directorio de logs de tareas en segundo plano (certbot): debe ser escribible
+# por PHP (usuario 'miserver') o las tareas quedan "running" para siempre
+# (no se escribe el marcador MISERVER_EXIT).
+install -d -o miserver -g miserver -m 0770 /var/log/miserver/jobs
+
 # Un cron de root mantiene la copia /usr/local/sbin/miserver-ctl sincronizada
 # con el repo del panel: tras un "git pull" (o edición manual), el wrapper se
 # refresca en < 1 minuto sin pasos extra.
