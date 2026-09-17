@@ -88,21 +88,30 @@ function ctl_run_raw(array $args): array
 }
 
 /**
- * Ejecuta el wrapper vía exec() en lugar de proc_open(). Útil cuando proc_open
- * pierde la salida con sudo en ciertos entornos.
+ * Ejecuta el wrapper vía proc_open() manteniendo stdin abierto mientras se lee
+ * la salida. En algunos entornos sudo falla si se cierra stdin antes de que el
+ * hijo termine.
  * @param string[] $args
- * @return array{exit:int,out:string}
+ * @return array{exit:int,out:string,err:string}
  */
-function ctl_run_exec(array $args): array
+function ctl_run_read(array $args): array
 {
     if (!ctl_available()) {
-        return ['exit' => 127, 'out' => 'wrapper miserver-ctl no disponible'];
+        return ['exit' => 127, 'out' => '', 'err' => 'wrapper miserver-ctl no disponible'];
     }
-    $cmd = 'sudo -n ' . escapeshellarg(ctl_path()) . ' ' . implode(' ', array_map('escapeshellarg', $args)) . ' 2>&1';
-    $output = [];
-    $exit = 0;
-    exec($cmd, $output, $exit);
-    return ['exit' => $exit, 'out' => implode("\n", $output)];
+    $cmd = array_merge(['sudo', '-n', ctl_path()], $args);
+    $proc = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    if (!is_resource($proc)) {
+        return ['exit' => 127, 'out' => '', 'err' => 'no se pudo ejecutar el wrapper'];
+    }
+    // Mantenemos stdin abierto mientras leemos; cierra después.
+    $out = stream_get_contents($pipes[1]);
+    $err = stream_get_contents($pipes[2]);
+    fclose($pipes[0]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exit = proc_close($proc);
+    return ['exit' => $exit, 'out' => $out, 'err' => $err];
 }
 
 function ctl_ok_else(array $r, string $msg): void

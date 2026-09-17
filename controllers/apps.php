@@ -192,7 +192,7 @@ function ctrl_apps_reinstall(array $p): void
     // Backup .env
     $envRel = $folder . '/.env';
     $envBackup = '';
-    $re = ctl_run_exec(['fs:cat', $owner['user'], $envRel, '2097152']);
+    $re = ctl_run_read(['fs:cat', $owner['user'], $envRel, '2097152']);
     if ($re['exit'] === 0) {
         $envBackup = $re['out'];
     }
@@ -224,7 +224,7 @@ function ctrl_apps_env(array $p): void
     $content = '';
     $existed = false;
     $source = '';
-    $r = ctl_run_exec(['fs:cat', $owner['user'], $rel, '2097152']);
+    $r = ctl_run_read(['fs:cat', $owner['user'], $rel, '2097152']);
     $directPath = '/home/' . $owner['user'] . '/' . $rel;
     if (($r['exit'] !== 0 || ($r['out'] ?? '') === '') && is_readable($directPath)) {
         $direct = @file_get_contents($directPath);
@@ -232,16 +232,11 @@ function ctrl_apps_env(array $p): void
             $r = ['exit' => 0, 'out' => $direct];
         }
     }
-    $logDir = '/home/miserver/panel/tmp';
-    @mkdir($logDir, 0770, true);
-    $logData = json_encode(['time' => date('c'), 'exit' => $r['exit'], 'out_len' => strlen($r['out'] ?? ''), 'out' => $r['out'] ?? '']);
-    $written = file_put_contents($logDir . '/miserver_env_debug.log', $logData . "\n", FILE_APPEND | LOCK_EX);
-    error_log('MISERVER_ENV_DEBUG app_id=' . (int) $p[0] . ' written=' . ($written === false ? 'false' : (string) $written) . ' data=' . $logData);
     if ($r['exit'] === 0) {
         $content = $r['out'];
         $existed = true;
     } elseif (ctl_run(['fs:exists', $owner['user'], $rel])['exit'] === 0) {
-        respond(false, 'No se pudo leer .env: ' . e($r['out']));
+        respond(false, 'No se pudo leer .env: ' . e($r['err'] ?: $r['out']));
     } else {
         $exampleRel = app_env_example_path($row, $owner);
         if ($exampleRel !== null) {
@@ -306,9 +301,9 @@ function ctrl_apps_env_from_example(array $p): void
         respond(false, 'No se encontró .env.example, .env.local ni .env.dist en /home/' . e($owner['user']) . '/' . e($row['folder']) . '.');
     }
 
-    $re = ctl_run_exec(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+    $re = ctl_run_read(['fs:cat', $owner['user'], $exampleRel, '2097152']);
     if ($re['exit'] !== 0) {
-        respond(false, 'No se pudo leer ' . basename($exampleRel) . '. Error: ' . e($re['out']));
+        respond(false, 'No se pudo leer ' . basename($exampleRel) . '. Error: ' . e($re['err'] ?: $re['out']));
     }
     if ($re['out'] === '') {
         respond(false, basename($exampleRel) . ' existe pero está vacío.');
