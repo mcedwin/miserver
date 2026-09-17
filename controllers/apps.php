@@ -269,6 +269,35 @@ function ctrl_apps_env_save(array $p): void
     respond(true, '.env guardado.', url('apps/' . (int) $p[0] . '/env'));
 }
 
+function ctrl_apps_env_from_example(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = app_row_or_fail($p[0], $u);
+    $owner = app_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $envRel = $row['folder'] . '/.env';
+    $exampleRel = $row['folder'] . '/.env.example';
+
+    $r = ctl_run_raw(['fs:cat', $owner['user'], $envRel, '1']);
+    if ($r['exit'] === 0 && $r['err'] === '') {
+        respond(true, '.env ya existe.', url('apps/' . (int) $p[0] . '/env'));
+    }
+
+    $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+    if ($re['exit'] !== 0 || $re['err'] !== '') {
+        respond(false, 'No se encontró .env.example.');
+    }
+
+    $w = ctl_run(['fs:write', $owner['user'], $envRel], $re['out']);
+    if ($w['exit'] !== 0) {
+        respond(false, 'Error al crear .env: ' . e($w['out']));
+    }
+    respond(true, '.env creado desde .env.example.', url('apps/' . (int) $p[0] . '/env'));
+}
+
 function ctrl_apps_delete(array $p): void
 {
     $u = require_login();

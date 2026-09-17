@@ -37,6 +37,7 @@
           <button class="btn btn-xs btn-info" data-post="<?= url('apps/'.$a['id'].'/pull') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Hacer git pull de <?= e($a['name']) ?> y desplegar?" title="git pull + despliegue">Pull</button>
           <button class="btn btn-xs" data-post="<?= url('apps/'.$a['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>">Migrar</button>
           <a class="btn btn-xs" href="<?= url('apps/'.$a['id'].'/env') ?>">.env</a>
+          <button class="btn btn-xs" data-post="<?= url('apps/'.$a['id'].'/env-from-example') ?>" data-csrf="<?= csrf_token() ?>">Crear .env desde .env.example</button>
           <button class="btn btn-xs" data-post="<?= url('apps/'.$a['id'].'/reinstall') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Borrar y volver a clonar <?= e($a['name']) ?>? Se conserva el .env.">Reinstalar</button>
           <a class="btn btn-xs" href="<?= url('apps/'.$a['id'].'/edit') ?>">Editar</a>
           <button class="btn btn-xs btn-danger" data-post="<?= url('apps/'.$a['id'].'/delete') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar la aplicación? Los archivos NO se borrarán.">Eliminar</button>

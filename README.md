@@ -130,7 +130,8 @@ php cli.php health
 | `/download`    | Descarga de backups (`?f=archivo`)                             |
 | `/users`       | Alta/baja de cuentas (admin): usuario Linux + MySQL + vhost    |
 | `/dbs`         | Bases y usuarios MySQL, permisos (relaciones)                  |
-| `/domains`     | Dominios, vhosts, crear apps desde GitHub, `.env`, desplegar   |
+| `/domains`     | Dominios y vhosts (carpeta + DocumentRoot manual)              |
+| `/apps`        | Aplicaciones: clonar desde GitHub, `.env`, desplegar, migrar   |
 | `/cron`        | `crontab` del usuario                                          |
 | `/files`       | Gestor de archivos + editor de texto                           |
 | `/settings`    | Config del panel, token DO, contraseña                         |
@@ -142,16 +143,15 @@ admin inicial se crea con `cli.php init` (o el wizard `/setup`).
 
 ### Aplicaciones desde GitHub
 
-Desde **Dominios → Crear aplicación desde GitHub** se lanza un flujo
-completo sobre una URL `https://...`. Soporta **repos públicos y privados**:
+Desde **Aplicaciones → Nueva aplicación** se clona un repo `https://...` en
+`/home/<usuario>/<carpeta>` y se despliega. Soporta **repos públicos y privados**:
 para los privados indica un token (p. ej. GitHub PAT) en el campo **Token**;
 se guarda cifrado (AES-256-GCM, `APP_SECRET`) y solo se usa al clonar, vía un
 credential-helper temporal con permisos 0600 que se borra después (nunca en la
 URL ni en la BD en claro):
 
 1. `git:clone <usuario> <carpeta> <URL> [rama] [token]` — clon *shallow*
-   (--depth 1) en `/home/<usuario>/<carpeta>` usando la rama indicada
-   (por defecto `main`) y el token si se aporta.
+   (--depth 1) usando la rama indicada (por defecto `main`) y el token si se aporta.
 2. `git:detect <usuario> <carpeta>` — detecta el tipo de proyecto y la carpeta
    web propuesta:
    - **Laravel** (`artisan` + `public/index.php`) → DocumentRoot `…/public`
@@ -160,30 +160,24 @@ URL ni en la BD en claro):
    - **WordPress** (`wp-config.php`) → DocumentRoot raíz (`…/carpeta`)
    - **PHP** (`index.php/html` o `public/index.php`) y **Node** → según caso
    - **Otro** → raíz, sin despliegue automático
-3. `vhost:add <usuario> <dominio> <folder> [document_root] [php_version]` —
-   regenera el VirtualHost: `DocumentRoot` configurable (admite subcarpetas como
-   `carpeta/public`) y un bloque `SetHandler` hacia `php<V>-fpm.sock` solo si
-   existe el socket de FPM de esa versión (si no, se sirve con el PHP del sistema).
-4. Tras crear, se desplega automáticamente (`app:deploy … all` = **Composer +
-   caches**, sin migraciones) y quedan dos botones:
-   - **Desplegar** → `app:deploy <usuario> <carpeta-proyecto> [php] all` —
-     Composer install + caches de artisan/CI, ejecutado como dueño del proyecto
-     (`runuser -u <usuario> -- env -C <dir>`). Composer del sistema o
-     auto-instalado vía `getcomposer.org` si falta.
-   - **Migrar BD** → `app:deploy … migrate` — migraciones explícitas
-     (`artisan migrate --force` en Laravel, `spark migrate` en CodeIgniter 4),
-     pensado para cuando ya hayas configurado la BD en el `.env`.
-   Ambos corren como **job asíncrono** (ver `/jobs`).
+3. Tras crear, se despliega automáticamente (`app:deploy … all` = **Composer +
+   caches**, sin migraciones) y quedan botones para **Desplegar**, **Pull**,
+   **Migrar BD**, **Reinstalar** y **.env**.
+4. El editor de `.env` precarga `.env.example` cuando el archivo no existe; también
+   hay un botón **Crear .env desde .env.example**.
 
-Rutas web del módulo: `/domains/{id}/edit|update`, `/domains/{id}/env` (editor
-del `.env` de la aplicación, lectura/escritura privilegiada vía `fs:cat` /
-`fs:write`), `/domains/{id}/deploy`, `/domains/{id}/migrate`,
-`/domains/{id}/detect`.
+Los **Dominios** son independientes: solo indican la carpeta y el `DocumentRoot`
+que Apache debe servir. Para apuntar un dominio a una aplicación, copiá su
+DocumentRoot en **Dominios → Añadir dominio**.
 
-El esquema de `domain` incluye `project_type`, `git_url`, `git_branch`,
-`git_token` (cifrado), `project_path`, `document_root` y `php_version`
-(instalaciones existentes: se añaden automáticamente al arrancar; también puedes
-ejecutar `php cli.php upgrade-schema`).
+Rutas web del módulo: `/apps`, `/apps/create`, `/apps/{id}/edit|update|deploy|pull|migrate|reinstall|delete`,
+`/apps/{id}/env` (editor del `.env`) y `/apps/{id}/env-from-example`.
+
+El esquema de `domain` incluye `folder`, `document_root` y `php_version`;
+las columnas legacy (`project_type`, `git_url`, etc.) se mantienen solo por
+compatibilidad con datos antiguos.
+
+Rutas web de dominios: `/domains`, `/domains/{id}/edit|update|logs|toggle|ssl|dns|delete`.
 
 ---
 
