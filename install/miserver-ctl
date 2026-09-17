@@ -71,6 +71,20 @@ vrel() {
   esac
 }
 
+# Aplicaciones desde GitHub: solo https (sin credenciales embebidas). El patrón se
+# mantiene en una variable (no literal) para que $, &, ( ) no se expandan en [[ =~ ]].
+re_url='^https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z]{2,})+(/[a-z0-9._~!$&()*+,;=:@%-]+)+$'
+re_branch='^[a-z0-9][a-z0-9._/-]{0,99}$'
+re_ver='^[0-9]+\.[0-9]+$'
+
+vurl() {
+  [ $# -ge 1 ] || die "URL vacia"
+  [ ${#1} -le 500 ] || die "URL demasiado larga"
+  [[ "$1" =~ $re_url ]] || die "URL de repositorio no valida (solo https://.../user/repo)"
+}
+vbranch() { [ $# -ge 1 ] || die "rama invalida"; [[ "$1" =~ $re_branch ]] || die "rama invalida"; }
+vver()    { [ $# -ge 1 ] || die "version PHP invalida"; [ -z "$1" ] && return 0; [[ "$1" =~ $re_ver ]] || die "version PHP invalida"; }
+
 fs_full() { echo "/home/$1/$2"; }
 
 # fs_check <usuario> <ruta-relativa>: garantiza que la ruta no atraviesa enlaces
@@ -156,27 +170,20 @@ apache_reload() {
   systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
 }
 
-vhost_conf() { # $1=usuario $2=dominio $3=folder
-  local u="$1" d="$2" f="$3"
-  cat > "/etc/apache2/sites-available/$d.conf" <<EOF
-<VirtualHost *:80>
-  ServerAdmin webmaster@$d
-  ServerName $d
-  ServerAlias www.$d
-  DocumentRoot "/home/$u/$f"
-  <Directory "/home/$u/$f">
-    Options -Indexes +FollowSymLinks
-    AllowOverride All
-    Require all granted
-  </Directory>
-  <IfModule mod_ruid2.c>
-    RMode config
-    RUidGid $u $u
-  </IfModule>
-  ErrorLog \${APACHE_LOG_DIR}/$u-error.log
-  CustomLog \${APACHE_LOG_DIR}/$u-access.log combined
-</VirtualHost>
-EOF
+vhost_conf() { # $1=usuario $2=dominio $3=folder $4=document_root $5=php_version
+  local u="$1" d="$2" f="$3" dr="${4:-}" pv="${5:-}" fpm= fpm_opt=
+  [ -n "$dr" ] || dr="$f"
+  # PHP por versión: solo aplica si hay pooling FPM de esa versión. Con mod_php
+  # global (instalación por defecto) la versión es la del sistema y el vhost no
+  # se toca; si se pide otra versión sin su socket, se mantiene mod_php (el sitio
+  # igual se sirve correctamente con el PHP del sistema).
+  if [ -n "$pv" ] && [ -S "/run/php/php${pv}-fpm.sock" ]; then
+    fpm="$pv"
+    fpm_opt=$(printf '\n    <IfModule mod_proxy_fcgi.c>\n      <FilesMatch "\\.php$">\n        SetHandler "proxy:unix:/run/php/php%s-fpm.sock|fcgi://localhost/home/%s/%s"\n      </FilesMatch>\n    </IfModule>' "$fpm" "$u" "$dr")
+  fi
+  printf '<VirtualHost *:80>\n  ServerAdmin webmaster@%s\n  ServerName %s\n  ServerAlias www.%s\n  DocumentRoot "/home/%s/%s"\n  <Directory "/home/%s/%s">\n    Options -Indexes +FollowSymLinks\n    AllowOverride All\n    Require all granted\n%s\n  </Directory>\n  <IfModule mod_ruid2.c>\n    RMode config\n    RUidGid %s %s\n  </IfModule>\n  ErrorLog ${APACHE_LOG_DIR}/%s-error.log\n  CustomLog ${APACHE_LOG_DIR}/%s-access.log combined\n</VirtualHost>\n' \
+    "$d" "$d" "$d" "$u" "$dr" "$u" "$dr" "$fpm_opt" "$u" "$u" "$u" "$u" \
+    > "/etc/apache2/sites-available/$d.conf"
   chmod 644 "/etc/apache2/sites-available/$d.conf"
   ln -sf "/etc/apache2/sites-available/$d.conf" "/etc/apache2/sites-enabled/$d.conf"
 }
@@ -190,13 +197,16 @@ is_panel_vhost() {
 # Garantiza un vhost para $d apuntando a la carpeta pedida. Solo se respeta el
 # vhost del panel; cualquier otra conf (aunque exista de antes) se reescribe para
 # que nunca sirva la carpeta equivocada de otro dominio.
-vhost_ensure() { # $1=usuario $2=dominio $3=folder
-  local u="$1" d="$2" f="$3"
+vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_version]
+  local u="$1" d="$2" f="$3" dr="${4:-}" pv="${5:-}"
+  vuser "$u"; vdom "$d"; vrel "$f"
+  if [ -n "$dr" ]; then vrel "$dr"; fi
+  vver "$pv"
   if is_panel_vhost "$d"; then
     echo "vhost del panel, se respeta"
     return
   fi
-  vhost_conf "$u" "$d" "$f"
+  vhost_conf "$u" "$d" "$f" "$dr" "$pv"
 }
 
 # MySQL por socket (el wrapper corre como root durante la instalación)
@@ -299,17 +309,24 @@ case "$cmd" in
 
   # --- Vhosts / SSL ----------------------------------------------------------
   vhost:add)
-    [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder>"
-    u="$1"; d="$2"; f="$3"; vuser "$u"; vdom "$d"; vrel "$f"
-    log "vhost:add $u $d $f"
+    [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder> [document_root] [php_version]"
+    u="$1"; d="$2"; f="$3"; dr="${4:-}"; pv="${5:-}"
+    vuser "$u"; vdom "$d"; vrel "$f"
+    if [ -n "$dr" ]; then vrel "$dr"; else dr="$f"; fi
+    vver "$pv"
+    log "vhost:add $u $d $f [docroot=$dr] [php=$pv]"
     ensure_linux_user "$u"
-    mkdir -p "/home/$u/$f"
-    if [ -z "$(ls -A "/home/$u/$f" 2>/dev/null)" ]; then
-      printf '<h1>%s</h1>\n' "$d" > "/home/$u/$f/index.html"
+    base="/home/$u/$f"
+    root="/home/$u/$dr"
+    mkdir -p "$base"
+    mkdir -p "$root"
+    if [ -z "$(ls -A "$root" 2>/dev/null)" ]; then
+      printf '<h1>%s</h1>\n' "$d" > "$root/index.html"
     fi
-    chown -R "$u:$u" "/home/$u/$f"
-    vhost_ensure "$u" "$d" "$f"
+    chown -R "$u:$u" "$base"
+    vhost_ensure "$u" "$d" "$f" "$dr" "$pv"
     apache_reload
+    echo "DocumentRoot='/home/$u/$dr'"
     echo ok
     ;;
 
@@ -682,6 +699,123 @@ case "$cmd" in
     size="$(stat -c %s "$out" 2>/dev/null || echo 0)"
     chmod 0644 "$out" 2>/dev/null || true
     printf 'file|%s|%s|%s\n' "$size" "$(date '+%Y-%m-%d %H:%M')" "$(basename "$out")"
+    ;;
+
+  # --- Aplicaciones desde GitHub -------------------------------------------
+  git:clone)
+    [ $# -ge 3 ] || die "git:clone <usuario> <carpeta> <URL> [rama]"
+    u="$1"; f="$2"; url="$3"; br="${4:-}"
+    vuser "$u"; vrel "$f"; vurl "$url"
+    [ -n "$br" ] && vbranch "$br"
+    log "git:clone $u $f $url${br:+ -b $br}"
+    ensure_linux_user "$u"
+    fs_check "$u" "$f"
+    target="/home/$u/$f"
+    if [ -e "$target" ]; then
+      [ -z "$(ls -A "$target" 2>/dev/null)" ] || die "la carpeta destino ya contiene archivos: usa una carpeta nueva"
+    fi
+    mkdir -p "$(dirname "$target")"
+    export GIT_TERMINAL_PROMPT=0
+    if [ -n "$br" ]; then
+      timeout 900 git -c credential.helper= clone --depth 1 --branch "$br" --single-branch -- "$url" "$target"
+    else
+      timeout 900 git -c credential.helper= clone --depth 1 -- "$url" "$target"
+    fi
+    # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
+    chown -R "$u:$u" "$target" 2>/dev/null || true
+    git -C "$target" remote set-url origin "$url" 2>/dev/null || true
+    echo ok
+    ;;
+
+  git:detect)
+    [ $# -ge 2 ] || die "git:detect <usuario> <carpeta>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"
+    ensure_linux_user "$u"
+    fs_check "$u" "$r"
+    dir="/home/$u/$r"
+    [ -d "$dir" ] || die "no existe la carpeta '$r'"
+    type=other
+    webroot='.'
+    if [ -f "$dir/artisan" ] && [ -f "$dir/public/index.php" ]; then
+      type=laravel; webroot=public
+    elif [ -f "$dir/public/index.php" ] && [ ! -f "$dir/index.php" ]; then
+      type=php; webroot=public
+    elif [ -f "$dir/wp-config.php" ]; then
+      type=wordpress; webroot='.'
+    elif [ -f "$dir/index.php" ] || [ -f "$dir/index.html" ] || [ -f "$dir/index.htm" ]; then
+      type=php; webroot='.'
+    elif [ -f "$dir/package.json" ]; then
+      type=node; webroot='.'
+    fi
+    echo "type|$type"
+    echo "webroot|$webroot"
+    ;;
+
+  # Despliegue post-clon (Laravel y apps con composer): composer, caches de
+  # artisan y migraciones, según corresponda. Todo como el DUEÑO del proyecto
+  # (los archivos del vhost se sirven con mod_ruid2 como ese usuario).
+  #   app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]
+  #   pasos: all (composer+cache+migrate) | composer | cache | migrate
+  app:deploy)
+    [ $# -ge 2 ] || die "app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]"
+    u="$1"; rel="$2"; pv="${3:-}"; steps="${4:-all}"
+    vuser "$u"; vrel "$rel"; vver "$pv"
+    case "$steps" in all|composer|cache|migrate) ;; *) die "pasos invalidos: $steps" ;; esac
+    ensure_linux_user "$u"
+    fs_check "$u" "$rel"
+    target="/home/$u/$rel"
+    [ -d "$target" ] || die "no existe la carpeta '$rel'"
+    phpbin=/usr/bin/php
+    if [ -n "$pv" ] && [ -x "/usr/bin/php${pv}" ]; then
+      phpbin="/usr/bin/php${pv}"
+    fi
+    echo "[deploy] usuario=$u php=$phpbin pasos=$steps"
+    echo "[deploy] proyecto=/home/$u/$rel"
+    if [ "$steps" = all ] || [ "$steps" = composer ]; then
+      if [ -f "$target/composer.json" ]; then
+        carr=(); phar=0
+        if [ -x /usr/local/bin/composer ]; then carr=(/usr/local/bin/composer)
+        elif command -v composer >/dev/null 2>&1; then carr=("$(command -v composer)")
+        elif [ -f "$target/composer.phar" ]; then carr=("$phpbin" "$target/composer.phar"); phar=1
+        fi
+        if [ "${#carr[@]}" -eq 0 ]; then
+          echo "[deploy] Composer no detectado; instalando /usr/local/bin/composer..."
+          if ! curl -fsSL https://getcomposer.org/installer | "$phpbin" -- --install-dir=/usr/local/bin --filename=composer 2>&1; then
+            echo "error: no se pudo instalar Composer" >&2
+            exit 1
+          fi
+          carr=(/usr/local/bin/composer)
+        fi
+        echo "[deploy] composer install --no-dev --optimize-autoloader ..."
+        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "${carr[@]}" install --no-interaction --prefer-dist --no-dev --optimize-autoloader 2>&1; then
+          echo "error: 'composer install' falló" >&2
+          exit 1
+        fi
+      else
+        echo "[deploy] sin composer.json, se omite composer"
+      fi
+    fi
+    if [ "$steps" = all ] || [ "$steps" = cache ]; then
+      if [ -f "$target/artisan" ]; then
+        echo "[deploy] artisan config:cache ..."
+        timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan config:cache 2>&1 || { echo "error: 'config:cache' falló" >&2; exit 1; }
+        echo "[deploy] artisan route:cache ..."
+        timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan route:cache 2>&1 || { echo "error: 'route:cache' falló" >&2; exit 1; }
+        echo "[deploy] artisan view:cache ..."
+        timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan view:cache 2>&1 || { echo "error: 'view:cache' falló" >&2; exit 1; }
+      else
+        echo "[deploy] sin artisan, se omiten caches de Laravel"
+      fi
+    fi
+    if [ "$steps" = all ] || [ "$steps" = migrate ]; then
+      if [ -f "$target/artisan" ]; then
+        echo "[deploy] artisan migrate --force ..."
+        timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan migrate --force 2>&1 || { echo "error: 'migrate' falló" >&2; exit 1; }
+      else
+        echo "[deploy] sin artisan, se omiten migraciones"
+      fi
+    fi
+    echo ok
     ;;
 
   *)

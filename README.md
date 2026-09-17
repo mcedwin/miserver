@@ -109,6 +109,10 @@ php cli.php health
   listas blancas (usuario, dominio, nombres de BD, rutas relativas sin `..`,
   contraseñas con juego de caracteres seguro) y registra cada operación en
   `/var/log/miserver/ops.log`.
+- Repositorios GitHub: solo `https://` sin credenciales embebidas, rama con
+  `[a-z0-9._/-]` y sin `..`; las rutas de proyecto/DocumentRoot se validan
+  relativas (`relpath_ok`). El despliegue corre como el dueño del proyecto,
+  nunca como raíz.
 - `sudoers` restringe `miserver` a ejecutar **únicamente** ese binario.
 - Sesiones en el directorio `SESSION_PATH` (`var/sessions`), cookies
   `HttpOnly + SameSite` y CSRF en todos los POST y rate-limiting en el login.
@@ -126,15 +130,47 @@ php cli.php health
 | `/download`    | Descarga de backups (`?f=archivo`)                             |
 | `/users`       | Alta/baja de cuentas (admin): usuario Linux + MySQL + vhost    |
 | `/dbs`         | Bases y usuarios MySQL, permisos (relaciones)                  |
-| `/domains`     | Dominios, vhosts, activar SSL (job asíncrono), DNS-DO          |
+| `/domains`     | Dominios, vhosts, crear apps desde GitHub, `.env`, desplegar   |
 | `/cron`        | `crontab` del usuario                                          |
 | `/files`       | Gestor de archivos + editor de texto                           |
 | `/settings`    | Config del panel, token DO, contraseña                         |
-| `/jobs`        | Tareas en segundo plano (certbot, DNS, ...)                    |
+| `/jobs`        | Tareas en segundo plano (certbot, deploy, DNS, ...)            |
 | `/login`       | Autenticación                                                  |
 
 Roles: **admin** (ve/opera todo) y **user** (solo su propio contexto). El
 admin inicial se crea con `cli.php init` (o el wizard `/setup`).
+
+### Aplicaciones desde GitHub
+
+Desde **Dominios → Crear aplicación desde GitHub** se lanza un flujo
+completo sobre una URL `https://...` (solo repos *públicos*, sin credenciales):
+
+1. `git:clone <usuario> <carpeta> <URL> [rama]` — clon *shallow* (--depth 1)
+   en `/home/<usuario>/<carpeta>` usando la rama indicada (por defecto `main`).
+2. `git:detect <usuario> <carpeta>` — detecta el tipo de proyecto y la carpeta
+   web propuesta:
+   - **Laravel** (`artisan` + `public/index.php`) → DocumentRoot `…/public`
+   - **WordPress** (`wp-config.php`) → DocumentRoot raíz (`…/carpeta`)
+   - **PHP** (`index.php/html` o `public/index.php`) y **Node** → según caso
+   - **Otro** → raíz, sin despliegue automático
+3. `vhost:add <usuario> <dominio> <folder> [document_root] [php_version]` —
+   regenera el VirtualHost: `DocumentRoot` configurable (admite subcarpetas como
+   `carpeta/public`) y un bloque `SetHandler` hacia `php<V>-fpm.sock` solo si
+   existe el socket de FPM de esa versión (si no, se sirve con el PHP del sistema).
+4. Botón **Desplegar** → `app:deploy <usuario> <carpeta-proyecto> [php] [pasos]`
+   ejecutado como el dueño del proyecto (`runuser -u <usuario> -- env -C <dir>`),
+   con pasos: `all` (composer install + artisan caches + migrate), `composer`,
+   `cache` o `migrate`. Composer se usa del sistema o se auto-instala vía
+   `getcomposer.org` si falta. Se ejecuta como **job asíncrono** (ver `/jobs`).
+
+Rutas web del módulo: `/domains/{id}/edit|update`, `/domains/{id}/env` (editor
+del `.env` de la aplicación, lectura/escritura privilegiada vía `fs:cat` /
+`fs:write`), `/domains/{id}/deploy`, `/domains/{id}/detect`.
+
+El esquema de `domain` incluye `project_type`, `git_url`, `git_branch`,
+`project_path`, `document_root` y `php_version` (instalaciones existentes: se
+añaden automáticamente al arrancar; también puedes ejecutar
+`php cli.php upgrade-schema`).
 
 ---
 
@@ -144,6 +180,7 @@ admin inicial se crea con `cli.php init` (o el wizard `/setup`).
 php cli.php health                          # diagnóstico
 php cli.php init --user=admin --domain=panel.tudominio.com --pass=CLAVE
 php cli.php migrate                         # migración desde esquema antiguo
+php cli.php upgrade-schema                  # añade columnas de aplicaciones (idempotente)
 ```
 
 ---

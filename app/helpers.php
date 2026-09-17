@@ -106,6 +106,34 @@ const RE_DBUSER   = '/^[a-z0-9_]{1,64}$/';
 const RE_DOMAIN   = '/^(?=.{4,190}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/';
 const RE_FOLDER   = '/^(?!\.)(?!.*\.\.)[^\/\x00-\x1f]{1,255}$/'; // sin /, sin .., sin punto inicial, sin control; permite UTF-8
 
+// Aplicaciones desde GitHub: solo https, sin credenciales embebidas (user@ o :pass@).
+const RE_GITURL    = '/^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(\.[a-z]{2,})+(\/[a-z0-9._~!$&()*+,;=:@%\-]+)+$/i';
+const RE_GITBRANCH = '/^[a-z0-9][a-z0-9._\/-]{0,99}$/i';
+const RE_PHPVER    = '/^[0-9]+\.[0-9]+$/';
+
+/**
+ * Valida una ruta relativa (proyecto dentro del repo o DocumentRoot respecto al home):
+ * relativa, sin `..`, sin bytes de control, sin barra final, máx. 255. Permite subcarpetas.
+ */
+function relpath_ok(string $raw): bool
+{
+    $s = trim(str_replace('\\', '/', $raw));
+    $s = trim($s, '/');
+    $n = strlen($s);
+    if ($n === 0 || $n > 255) {
+        return false;
+    }
+    if (preg_match('/[[:cntrl:]]/', $s)) {
+        return false;
+    }
+    foreach (explode('/', $s) as $seg) {
+        if ($seg === '..' || $seg === '.') {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Contraseñas: solo se exige longitud 8-72. Se rechazan ' y \ porque
 // romperían la sentencia MySQL que construye el wrapper.
 function valid_panel_password(string $pass, string $label = 'Contraseña'): string

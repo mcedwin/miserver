@@ -29,21 +29,66 @@ function ctrl_domains_store(): void
     $folder = $folder === '' ? $domain : $folder; // carpeta propia por dominio (evita chocar con public_html)
     $folder = require_match(RE_FOLDER, $folder, 'Carpeta no válida.');
 
+    $gitUrl = trim(post('git_url', '') ?? '');
+    $gitBranch = trim(post('git_branch', '') ?? '');
+    if ($gitBranch === '') {
+        $gitBranch = 'main';
+    }
+    $projectPath = trim(post('project_path', '') ?? '');
+    $documentRoot = trim(post('document_root', '') ?? '');
+    $phpVersion = trim(post('php_version', '') ?? '');
+
+    if ($gitUrl !== '') {
+        require_match(RE_GITURL, $gitUrl, 'URL de repositorio no válida (solo https y sin credenciales).');
+        if (!preg_match(RE_GITBRANCH, $gitBranch)) {
+            respond(false, 'Rama no válida.');
+        }
+        if ($projectPath !== '' && !relpath_ok($projectPath)) {
+            respond(false, 'Ruta del proyecto no válida.');
+        }
+        if ($documentRoot !== '' && !relpath_ok($documentRoot)) {
+            respond(false, 'DocumentRoot no válido.');
+        }
+        if ($phpVersion !== '' && !preg_match(RE_PHPVER, $phpVersion)) {
+            respond(false, 'Versión de PHP no válida.');
+        }
+    }
+
     if (db_one('SELECT id FROM domain WHERE domain = ?', [$domain])) {
         respond(false, 'Ese dominio ya está registrado.');
     }
     $targetId = ($u['role'] ?? '') === 'admin' ? post_int('user_id', (int) $u['id']) : (int) $u['id'];
     $owner = db_one('SELECT id, user FROM user WHERE id = ?', [$targetId]);
-    if (!$owner) { respond(false, 'Usuario no válido.'); }
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
 
-    db_run('INSERT INTO domain (user_id, domain, folder, `ssl`, enabled) VALUES (?, ?, ?, 0, 1)', [
-        $owner['id'], $domain, $folder,
+    db_run('INSERT INTO domain (user_id, domain, folder, project_type, git_url, git_branch, project_path, document_root, php_version, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1)', [
+        $owner['id'], $domain, $folder, '', $gitUrl, $gitBranch, $projectPath, $documentRoot, $phpVersion,
     ]);
     $id = (int) db_last_id();
 
-    $r = ctl_run(['vhost:add', $owner['user'], $domain, $folder]);
+    $type = '';
+    if ($gitUrl !== '') {
+        // 1) clonar -> 2) detectar tipo -> 3) proponer/confirmar DocumentRoot
+        $r = ctl_run(['git:clone', $owner['user'], $folder, $gitUrl, $gitBranch]);
+        if ($r['exit'] !== 0) {
+            db_run('DELETE FROM domain WHERE id = ?', [$id]); // rollback: poder reintentar
+            respond(false, 'Error al clonar el repositorio: ' . e($r['out']));
+        }
+        $det = domain_detect($owner['user'], $folder, $projectPath);
+        $type = (string) ($det['type'] ?? 'other');
+        if ($documentRoot === '') {
+            $documentRoot = domain_docroot_proposal($folder, $projectPath, (string) ($det['webroot'] ?? '.'));
+        }
+        db_run('UPDATE domain SET project_type = ?, document_root = ? WHERE id = ?', [$type, $documentRoot, $id]);
+    } elseif ($documentRoot === '') {
+        $documentRoot = $folder; // comportamiento previo: la carpeta es el DocumentRoot
+    }
+
+    $r = ctl_run(['vhost:add', $owner['user'], $domain, $folder, $documentRoot, $phpVersion]);
     if ($r['exit'] !== 0) {
-        db_run('DELETE FROM domain WHERE id = ?', [$id]); // rollback: poder reintentar
+        db_run('DELETE FROM domain WHERE id = ?', [$id]);
         respond(false, 'Error al crear el vhost: ' . e($r['out']));
     }
 
@@ -56,7 +101,161 @@ function ctrl_domains_store(): void
         $jid = job_create('cert', $domain, (int) $owner['id']);
         job_spawn($jid, ['cert:issue', $domain, db_config()['le_email'] ?? '']);
     }
-    respond(true, 'Dominio creado.', url('domains'));
+    respond(true, $gitUrl !== ''
+        ? 'Aplicación creada desde GitHub (tipo: ' . $type . ', DocumentRoot: /home/' . $owner['user'] . '/' . $documentRoot . ').'
+        : 'Dominio creado.', url('domains'));
+}
+
+function ctrl_domains_edit(array $p): void
+{
+    $u = require_login();
+    $row = domain_row_or_fail($p[0], $u);
+    $data = [
+        'title' => 'Editar aplicación',
+        'active' => 'domains',
+        'row' => $row,
+        'owner' => domain_owner($row),
+    ];
+    render('domains/edit', $data);
+}
+
+function ctrl_domains_update(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+
+    $type = post('project_type', '');
+    if (!in_array($type, ['', 'laravel', 'wordpress', 'php', 'node', 'other'], true)) {
+        respond(false, 'Tipo de proyecto no válido.');
+    }
+    $gitUrl = trim(post('git_url', '') ?? '');
+    if ($gitUrl !== '' && !preg_match(RE_GITURL, $gitUrl)) {
+        respond(false, 'URL de repositorio no válida.');
+    }
+    $gitBranch = trim(post('git_branch', '') ?? '');
+    if ($gitBranch === '') {
+        $gitBranch = 'main';
+    }
+    if (!preg_match(RE_GITBRANCH, $gitBranch)) {
+        respond(false, 'Rama no válida.');
+    }
+    $projectPath = trim(post('project_path', '') ?? '');
+    if ($projectPath !== '' && !relpath_ok($projectPath)) {
+        respond(false, 'Ruta del proyecto no válida.');
+    }
+    $folder = (string) ($row['folder'] ?? '');
+    $documentRoot = trim(post('document_root', '') ?? '');
+    if ($documentRoot === '') {
+        $documentRoot = $folder;
+    }
+    if (!relpath_ok($documentRoot)) {
+        respond(false, 'DocumentRoot no válido.');
+    }
+    $phpVersion = trim(post('php_version', '') ?? '');
+    if ($phpVersion !== '' && !preg_match(RE_PHPVER, $phpVersion)) {
+        respond(false, 'Versión de PHP no válida.');
+    }
+
+    db_run('UPDATE domain SET project_type = ?, git_url = ?, git_branch = ?, project_path = ?, document_root = ?, php_version = ? WHERE id = ?', [
+        $type, $gitUrl, $gitBranch, $projectPath, $documentRoot, $phpVersion, (int) $p[0],
+    ]);
+
+    $owner = domain_owner($row);
+    if ($owner) {
+        $r = ctl_run(['vhost:add', $owner['user'], $row['domain'], $folder, $documentRoot, $phpVersion]);
+        if ($r['exit'] !== 0) {
+            respond(false, 'Configuración guardada pero no se pudo regenerar el vhost: ' . e($r['out']));
+        }
+    }
+    respond(true, 'Aplicación actualizada y VirtualHost regenerado.', url('domains'));
+}
+
+function ctrl_domains_env(array $p): void
+{
+    $u = require_login();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $rel = domain_app_dir($row) . '/.env';
+    $content = '';
+    $r = ctl_run_raw(['fs:cat', $owner['user'], $rel, '2097152']);
+    if ($r['exit'] !== 0 || $r['err'] !== '') {
+        $content = ''; // aún no existe: el editor lo creará al guardar
+    } else {
+        $content = $r['out'];
+    }
+    $data = [
+        'title' => 'Editar .env',
+        'active' => 'domains',
+        'row' => $row,
+        'owner' => $owner,
+        'rel' => $rel,
+        'content' => $content,
+        'existed' => $content !== '' || ($r['exit'] === 0 && $r['err'] === ''),
+    ];
+    render('domains/env', $data);
+}
+
+function ctrl_domains_env_save(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $rel = domain_app_dir($row) . '/.env';
+    $content = (string) ($_POST['content'] ?? '');
+    if (strlen($content) > 2 * 1024 * 1024) {
+        respond(false, 'Contenido demasiado grande.');
+    }
+    $r = ctl_run(['fs:write', $owner['user'], $rel], $content);
+    if ($r['exit'] !== 0) {
+        respond(false, 'Error al guardar .env: ' . e($r['out']));
+    }
+    respond(true, '.env guardado.', url('domains/' . (int) $p[0] . '/env'));
+}
+
+function ctrl_domains_deploy(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $dir = domain_app_dir($row);
+    $pv = (string) ($row['php_version'] ?? '');
+    $jid = job_create('deploy', $row['domain'], (int) $owner['id']);
+    job_spawn($jid, ['app:deploy', $owner['user'], $dir, $pv, 'all']);
+    respond(true, 'Despliegue iniciado (Composer + caches + migraciones según corresponda). Logs y estado en Tareas.', url('jobs'));
+}
+
+function ctrl_domains_detect(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $folder = (string) ($row['folder'] ?? '');
+    $projectPath = (string) ($row['project_path'] ?? '');
+    $det = domain_detect($owner['user'], $folder, $projectPath);
+    $type = (string) ($det['type'] ?? 'other');
+    $docroot = domain_docroot_proposal($folder, $projectPath, (string) ($det['webroot'] ?? '.'));
+    db_run('UPDATE domain SET project_type = ?, document_root = ? WHERE id = ?', [$type, $docroot, (int) $p[0]]);
+    $r = ctl_run(['vhost:add', $owner['user'], $row['domain'], $folder, $docroot, (string) ($row['php_version'] ?? '')]);
+    if ($r['exit'] !== 0) {
+        respond(false, 'No se pudo regenerar el vhost: ' . e($r['out']));
+    }
+    respond(true, 'Tipo: ' . $type . ' — DocumentRoot: /home/' . $owner['user'] . '/' . $docroot, url('domains'));
 }
 
 function ctrl_domains_destroy(array $p): void
@@ -77,7 +276,9 @@ function ctrl_domains_toggle(array $p): void
     $row = domain_row_or_fail($p[0], $u);
     $new = (int) $row['enabled'] === 1 ? 0 : 1;
     $r = ctl_run(['vhost:toggle', $row['domain'], $new === 1 ? 'on' : 'off']);
-    if ($r['exit'] !== 0) { respond(false, 'Error al activar/desactivar: ' . e($r['out'])); }
+    if ($r['exit'] !== 0) {
+        respond(false, 'Error al activar/desactivar: ' . e($r['out']));
+    }
     db_run('UPDATE domain SET enabled = ? WHERE id = ?', [$new, (int) $p[0]]);
     respond(true, 'Dominio ' . ($new ? 'activado' : 'desactivado') . '.', url('domains'));
 }
@@ -109,6 +310,70 @@ function domain_row_or_fail(int $id, array $u): array
     } else {
         $row = db_one('SELECT * FROM domain WHERE id = ? AND user_id = ?', [$id, $u['id']]);
     }
-    if (!$row) { respond(false, 'Dominio no encontrado.'); }
+    if (!$row) {
+        respond(false, 'Dominio no encontrado.');
+    }
     return $row;
+}
+
+function domain_owner(array $row): ?array
+{
+    return db_one('SELECT id, user FROM user WHERE id = ?', [(int) $row['user_id']]) ?: null;
+}
+
+/** Directorio con el código de la aplicación (relativa al home), para .env/despliegue. */
+function domain_app_dir(array $row): string
+{
+    $dir = (string) ($row['folder'] ?? '');
+    if (($row['project_path'] ?? '') !== '') {
+        $dir .= '/' . $row['project_path'];
+    }
+    return $dir;
+}
+
+/** DocumentRoot efectivo: almacenado o la carpeta base (compatibilidad). */
+function domain_docroot(array $row): string
+{
+    $dr = (string) ($row['document_root'] ?? '');
+    return $dr !== '' ? $dr : (string) ($row['folder'] ?? '');
+}
+
+/** Detecta el tipo de proyecto y su carpeta web propuesta (vía wrapper). */
+function domain_detect(string $user, string $folder, string $projectPath): array
+{
+    $rel = $folder;
+    if ($projectPath !== '') {
+        $rel = $folder . '/' . $projectPath;
+    }
+    $info = ['type' => 'other', 'webroot' => '.'];
+    $r = ctl_run(['git:detect', $user, $rel]);
+    if ($r['exit'] !== 0) {
+        return $info;
+    }
+    foreach (preg_split('/\r?\n/', $r['out']) as $line) {
+        if ($line === '') {
+            continue;
+        }
+        [$k, $v] = array_pad(explode('|', $line, 2), 2, '');
+        if ($k === 'type') {
+            $info['type'] = $v;
+        }
+        if ($k === 'webroot') {
+            $info['webroot'] = $v;
+        }
+    }
+    return $info;
+}
+
+/** DocumentRoot propuesto: carpeta + ruta del proyecto + carpeta web (p.ej. Laravel /public). */
+function domain_docroot_proposal(string $folder, string $projectPath, string $webroot): string
+{
+    $parts = [];
+    if ($projectPath !== '') {
+        $parts[] = $projectPath;
+    }
+    if ($webroot !== '' && $webroot !== '.') {
+        $parts[] = $webroot;
+    }
+    return $folder . ($parts ? '/' . implode('/', $parts) : '');
 }
