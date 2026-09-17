@@ -192,8 +192,8 @@ function ctrl_apps_reinstall(array $p): void
     // Backup .env
     $envRel = $folder . '/.env';
     $envBackup = '';
-    $re = ctl_run_raw(['fs:cat', $owner['user'], $envRel, '2097152']);
-    if ($re['exit'] === 0 && $re['err'] === '') {
+    $re = ctl_run_exec(['fs:cat', $owner['user'], $envRel, '2097152']);
+    if ($re['exit'] === 0) {
         $envBackup = $re['out'];
     }
 
@@ -224,17 +224,17 @@ function ctrl_apps_env(array $p): void
     $content = '';
     $existed = false;
     $source = '';
-    $r = ctl_run_raw(['fs:cat', $owner['user'], $rel, '2097152']);
-    if ($r['exit'] === 0 && $r['err'] === '') {
+    $r = ctl_run_exec(['fs:cat', $owner['user'], $rel, '2097152']);
+    if ($r['exit'] === 0) {
         $content = $r['out'];
         $existed = true;
     } elseif (ctl_run(['fs:exists', $owner['user'], $rel])['exit'] === 0) {
-        respond(false, 'No se pudo leer .env: ' . e($r['err'] ?: $r['out']));
+        respond(false, 'No se pudo leer .env: ' . e($r['out']));
     } else {
         $exampleRel = app_env_example_path($row, $owner);
         if ($exampleRel !== null) {
-            $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
-            if ($re['exit'] === 0 && $re['err'] === '') {
+            $re = ctl_run_exec(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+            if ($re['exit'] === 0) {
                 $content = $re['out'];
                 $source = basename($exampleRel);
             }
@@ -294,9 +294,9 @@ function ctrl_apps_env_from_example(array $p): void
         respond(false, 'No se encontró .env.example, .env.local ni .env.dist en /home/' . e($owner['user']) . '/' . e($row['folder']) . '.');
     }
 
-    $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
-    if ($re['exit'] !== 0 || $re['err'] !== '') {
-        respond(false, 'No se pudo leer ' . basename($exampleRel) . '. Error: ' . e($re['err'] ?: $re['out']));
+    $re = ctl_run_exec(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+    if ($re['exit'] !== 0) {
+        respond(false, 'No se pudo leer ' . basename($exampleRel) . '. Error: ' . e($re['out']));
     }
     if ($re['out'] === '') {
         respond(false, basename($exampleRel) . ' existe pero está vacío.');

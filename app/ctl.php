@@ -87,6 +87,24 @@ function ctl_run_raw(array $args): array
     return ['exit' => $exit, 'out' => $out, 'err' => $err];
 }
 
+/**
+ * Ejecuta el wrapper vía exec() en lugar de proc_open(). Útil cuando proc_open
+ * pierde la salida con sudo en ciertos entornos.
+ * @param string[] $args
+ * @return array{exit:int,out:string}
+ */
+function ctl_run_exec(array $args): array
+{
+    if (!ctl_available()) {
+        return ['exit' => 127, 'out' => 'wrapper miserver-ctl no disponible'];
+    }
+    $cmd = 'sudo -n ' . escapeshellarg(ctl_path()) . ' ' . implode(' ', array_map('escapeshellarg', $args)) . ' 2>&1';
+    $output = [];
+    $exit = 0;
+    exec($cmd, $output, $exit);
+    return ['exit' => $exit, 'out' => implode("\n", $output)];
+}
+
 function ctl_ok_else(array $r, string $msg): void
 {
     if ($r['exit'] !== 0) {
