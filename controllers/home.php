@@ -57,6 +57,9 @@ function ctrl_home_download(): void
     if ($real === false || strpos(str_replace('\\', '/', $real), rtrim(str_replace('\\', '/', realpath($dir) ?: $dir), '/') . '/') !== 0) {
         respond(false, 'Archivo no encontrado.');
     }
+    if (!is_readable($real)) {
+        respond(false, 'El archivo de backup no es legible por el panel (permisos).');
+    }
     header('Content-Type: application/octet-stream');
     header('Content-Disposition: attachment; filename="' . $f . '"');
     header('Content-Length: ' . (string) filesize($real));

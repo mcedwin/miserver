@@ -649,6 +649,7 @@ case "$cmd" in
     if [ -n "$dbs" ]; then
       mysqldump --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
     fi
+    chmod 0644 "${prefix}"* 2>/dev/null || true
     echo "bk-${ts}"
     [ $rc_homes -eq 0 ] || echo "aviso: los homes se respaldaron con errores rc=$rc_homes (log: $LOG_DIR/backup-homes.log)"
     [ $rc_db -eq 0 ] || echo "aviso: la copia de bases de datos fallo rc=$rc_db (log: $LOG_DIR/backup-db.log)"
@@ -679,6 +680,7 @@ case "$cmd" in
       exit 2
     fi
     size="$(stat -c %s "$out" 2>/dev/null || echo 0)"
+    chmod 0644 "$out" 2>/dev/null || true
     printf 'file|%s|%s|%s\n' "$size" "$(date '+%Y-%m-%d %H:%M')" "$(basename "$out")"
     ;;
 
