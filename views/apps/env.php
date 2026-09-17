@@ -1,10 +1,6 @@
 <?php /** views/apps/env.php — editor seguro del .env de la aplicación */ ?>
-<?php
-$debugFile = '/home/miserver/panel/tmp/view_env_debug.log';
-@mkdir('/home/miserver/panel/tmp', 0770, true);
-@file_put_contents($debugFile, date('c') . ' content_len=' . strlen($content ?? '') . ' existed=' . ($existed ? '1' : '0') . ' source=' . ($source ?? '') . "\n", FILE_APPEND | LOCK_EX);
-?>
 <a class="btn btn-sm" href="<?= url('apps') ?>">← Volver</a>
+<pre class="card" style="background:#222;color:#0f0;padding:1rem">DEBUG: content_len=<?= strlen($content ?? '') ?> existed=<?= $existed ? '1' : '0' ?> source=<?= e($source ?? '') ?> raw=<?= e((string)($content ?? '')) ?></pre>
 <div class="card mt-1">
   <h3>Editar <span class="mono">.env</span> · <?= e($row['name']) ?></h3>
   <p class="muted mb-1">
