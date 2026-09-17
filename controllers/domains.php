@@ -206,11 +206,26 @@ function ctrl_domains_env(array $p): void
     }
     $rel = domain_app_dir($row) . '/.env';
     $content = '';
+    $existed = false;
+    $suggested = false;
     $r = ctl_run_raw(['fs:cat', $owner['user'], $rel, '2097152']);
-    if ($r['exit'] !== 0 || $r['err'] !== '') {
-        $content = ''; // aún no existe: el editor lo creará al guardar
-    } else {
+    if ($r['exit'] === 0 && $r['err'] === '') {
         $content = $r['out'];
+        $existed = true;
+    } else {
+        // El .env no existe todavía: proponer el .env.example del repo si está disponible.
+        $exampleRel = domain_app_dir($row) . '/.env.example';
+        $re = ctl_run_raw(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+        if ($re['exit'] === 0 && $re['err'] === '') {
+            $content = $re['out'];
+            $suggested = true;
+            // Personalizar sugerencias básicas para este dominio.
+            $domain = (string) ($row['domain'] ?? '');
+            if ($domain !== '') {
+                $content = preg_replace('/^APP_URL=https?:\/\/localhost\b/m', "APP_URL=http://$domain", $content);
+                $content = preg_replace('/^APP_URL=$/m', "APP_URL=http://$domain", $content);
+            }
+        }
     }
     $data = [
         'title' => 'Editar .env',
@@ -219,7 +234,8 @@ function ctrl_domains_env(array $p): void
         'owner' => $owner,
         'rel' => $rel,
         'content' => $content,
-        'existed' => $content !== '' || ($r['exit'] === 0 && $r['err'] === ''),
+        'existed' => $existed,
+        'suggested' => $suggested,
     ];
     render('domains/env', $data);
 }

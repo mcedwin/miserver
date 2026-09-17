@@ -174,6 +174,24 @@ apache_reload() {
   systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
 }
 
+# Un "certbot --apache" fallido (p.ej. DNS aún sin apuntar al servidor) puede dejar
+# un vhost SSL residual (<d>-le-ssl.conf) que referencia un certificado inexistente
+# y rompe apache2ctl -t para TODOS los dominios. Esta función elimina SOLO ese
+# vhost residual (el que referencia un live/ que ya no tiene fullchain.pem); un
+# vhost SSL válido se conserva.
+prune_ssl_vhost() { # $1=dominio
+  local d="$1" base sc
+  for sc in "/etc/apache2/sites-available/${d}-le-ssl.conf" "/etc/apache2/sites-available/${d}-ssl.conf"; do
+    [ -f "$sc" ] || continue
+    base="$(basename "$sc")"
+    if grep -q "/etc/letsencrypt/live/$d/" "$sc" 2>/dev/null && [ ! -f "/etc/letsencrypt/live/$d/fullchain.pem" ]; then
+      a2dissite "$base" >/dev/null 2>&1 || true
+      rm -f -- "$sc" "/etc/apache2/sites-enabled/$base"
+      log "vhost SSL residual de $d eliminado ($base)"
+    fi
+  done
+}
+
 vhost_conf() { # $1=usuario $2=dominio $3=folder $4=document_root $5=php_version
   local u="$1" d="$2" f="$3" dr="${4:-}" pv="${5:-}" fpm= fpm_opt=
   [ -n "$dr" ] || dr="$f"
@@ -329,6 +347,7 @@ case "$cmd" in
     fi
     chown -R "$u:$u" "$base"
     vhost_ensure "$u" "$d" "$f" "$dr" "$pv"
+    prune_ssl_vhost "$d"
     apache_reload
     echo "DocumentRoot='/home/$u/$dr'"
     echo ok
@@ -341,9 +360,15 @@ case "$cmd" in
     log "vhost:del $d"
     a2dissite "$d.conf" >/dev/null 2>&1 || true
     rm -f "/etc/apache2/sites-available/$d.conf" "/etc/apache2/sites-enabled/$d.conf"
+    # También el vhost SSL (certbot --apache lo genera aparte).
+    a2dissite "$d-le-ssl.conf" >/dev/null 2>&1 || true
+    a2dissite "$d-ssl.conf" >/dev/null 2>&1 || true
+    rm -f "/etc/apache2/sites-available/$d-le-ssl.conf" "/etc/apache2/sites-enabled/$d-le-ssl.conf" \
+          "/etc/apache2/sites-available/$d-ssl.conf" "/etc/apache2/sites-enabled/$d-ssl.conf"
     if [ -d "/etc/letsencrypt/live/$d" ]; then
       certbot revoke --cert-path "/etc/letsencrypt/live/$d/fullchain.pem" --delete-after-revoke >/dev/null 2>&1 || true
     fi
+    prune_ssl_vhost "$d"
     apache_reload
     echo ok
     ;;
@@ -355,6 +380,7 @@ case "$cmd" in
     is_panel_vhost "$d" && die "el vhost del panel no se puede desactivar"
     log "vhost:toggle $d $s"
     if [ "$s" = on ]; then a2ensite "$d.conf" >/dev/null 2>&1 || true; else a2dissite "$d.conf" >/dev/null 2>&1 || true; fi
+    prune_ssl_vhost "$d"
     apache_reload
     echo ok
     ;;
@@ -421,6 +447,10 @@ case "$cmd" in
       fi
       [ "$i" -lt "$MAX_INTENTOS" ] && sleep 20
     done
+    # Limpia el vhost SSL residual que pudo dejar certbot en los intentos fallidos
+    # (si no, apache2ctl -t falla para todos los dominios) y deja Apache validando.
+    prune_ssl_vhost "$d"
+    apache_reload 2>/dev/null || true
     echo "error: no se pudo emitir el certificado para $d (¿DNS apunta a este servidor y el puerto 80 está abierto?)" >&2
     exit 1
     ;;

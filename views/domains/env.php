@@ -13,7 +13,9 @@
     Guarda las credenciales de la propia aplicación; son secretos y se almacenan en claro en disco (como es normal en un <code>.env</code>), protegido del acceso web por Apache.
     Debes añadir la variable <code>APP_KEY</code> a las aplicaciones Laravel cuando corresponda.
   </p>
-  <?php if (!$existed): ?>
+  <?php if ($suggested): ?>
+    <div class="alert-ok alert mb-1">No existe <code>.env</code> todavía. Se ha precargado el contenido de <code>.env.example</code> como sugerencia. Revisalo y pulsa Guardar.</div>
+  <?php elseif (!$existed): ?>
     <div class="alert-ok alert mb-1">No existe todavía. Pulsa Guardar para crearlo.</div>
   <?php endif; ?>
   <form method="post" action="<?= url('domains/'.(int)$row['id'].'/env') ?>" class="card" style="box-shadow:none;border:0;padding:0">
