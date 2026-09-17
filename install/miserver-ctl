@@ -597,6 +597,22 @@ case "$cmd" in
     echo ok
     ;;
 
+  fs:rmtree)
+    # Borrado recursivo de una CARPETA del home (usado como rollback de un clon
+    # fallido). Nunca se borra el home ni public_html (donde puede haber otro sitio).
+    [ $# -ge 2 ] || die "fs:rmtree <usuario> <carpeta-rel>"
+    u="$1"; r="$2"; vuser "$u"; vrel "$r"; fs_check "$u" "$r"
+    ensure_linux_user "$u"
+    full="$(fs_full "$u" "$r")"
+    [ -e "$full" ] || die "no existe"
+    [ -d "$full" ] || die "solo carpetas"
+    case "$r" in
+      ""|"."|"public_html"|public_html/*) die "no puedes borrar esa carpeta" ;;
+    esac
+    rm -rf -- "$full"
+    echo ok
+    ;;
+
   # --- Disco: uso por carpeta (dentro del home, sin seguir symlinks) -------
   du:users)
     # Homes de todos los usuarios con su tamaño total en bytes.
@@ -717,13 +733,20 @@ case "$cmd" in
     ensure_linux_user "$u"
     fs_check "$u" "$f"
     target="/home/$u/$f"
+    had_target=0
     if [ -e "$target" ]; then
+      had_target=1
       [ -z "$(ls -A "$target" 2>/dev/null)" ] || die "la carpeta destino ya contiene archivos: usa una carpeta nueva"
     fi
     mkdir -p "$(dirname "$target")"
     export GIT_TERMINAL_PROMPT=0
     helper=
     trap 'rm -f "$helper"' EXIT
+    cleanup_clone() {
+      # Borra un clon parcial dejado por git (solo si la carpeta NO existía antes
+      # de este intento: no se tocan datos que hayan podido estar ahí).
+      [ "$had_target" = 0 ] && [ -e "$target" ] && rm -rf -- "$target"
+    }
     if [ -n "$tok" ]; then
       # Credential-helper temporal (permisos 600) con el token; se borra al salir.
       helper="$(mktemp)"
@@ -735,9 +758,9 @@ case "$cmd" in
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 900 git "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target"
+      timeout 900 git "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target" || { cleanup_clone; exit 2; }
     else
-      timeout 900 git "${extra[@]}" clone --depth 1 -- "$url" "$target"
+      timeout 900 git "${extra[@]}" clone --depth 1 -- "$url" "$target" || { cleanup_clone; exit 2; }
     fi
     # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
     chown -R "$u:$u" "$target" 2>/dev/null || true

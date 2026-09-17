@@ -78,8 +78,8 @@ function ctrl_domains_store(): void
         // 1) clonar -> 2) detectar tipo -> 3) proponer/confirmar DocumentRoot
         $r = ctl_run(['git:clone', $owner['user'], $folder, $gitUrl, $gitBranch, $gitToken]);
         if ($r['exit'] !== 0) {
-            db_run('DELETE FROM domain WHERE id = ?', [$id]); // rollback: poder reintentar
-            respond(false, 'Error al clonar el repositorio: ' . e($r['out']));
+            // Rollback completo: fila + cualquier resto del clon, para poder reintentar.
+            domain_rollback($owner['user'], $folder, $domain, $id, 'Error al clonar el repositorio: ' . $r['out'], true);
         }
         $det = domain_detect($owner['user'], $folder, $projectPath);
         $type = (string) ($det['type'] ?? 'other');
@@ -93,8 +93,9 @@ function ctrl_domains_store(): void
 
     $r = ctl_run(['vhost:add', $owner['user'], $domain, $folder, $documentRoot, $phpVersion]);
     if ($r['exit'] !== 0) {
-        db_run('DELETE FROM domain WHERE id = ?', [$id]);
-        respond(false, 'Error al crear el vhost: ' . e($r['out']));
+        // El vhost pudo quedar creado aunque apache_reload fallara: se limpia y
+        // se borra el clon para que el reintento empiece de cero.
+        domain_rollback($owner['user'], $folder, $domain, $id, 'Error al crear el vhost: ' . $r['out'], $gitUrl !== '');
     }
 
     $do = do_create_domain($domain);
@@ -416,4 +417,20 @@ function domain_docroot_proposal(string $folder, string $projectPath, string $we
         $parts[] = $webroot;
     }
     return $folder . ($parts ? '/' . implode('/', $parts) : '');
+}
+
+/**
+ * Rollback de una creación de dominio/vhost a medias (best-effort): elimina la
+ * fila, el vhost (conf + reload de Apache) y, si $removeFolder (flujo GitHub),
+ * la carpeta del proyecto clonada, para que el reintento no falle con
+ * "carpeta ya existe" / "vhost existente".
+ */
+function domain_rollback(string $user, string $folder, string $domain, int $id, string $msg, bool $removeFolder = false): never
+{
+    ctl_run(['vhost:del', $domain]);        // quita conf y recarga Apache si existía
+    if ($removeFolder) {
+        ctl_run(['fs:rmtree', $user, $folder]); // quita restos del clon
+    }
+    db_run('DELETE FROM domain WHERE id = ?', [$id]);
+    respond(false, $msg);
 }

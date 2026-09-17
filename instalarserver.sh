@@ -47,7 +47,7 @@ apt-get upgrade -y
 apt-get install -y --no-install-recommends \
   apache2 libapache2-mod-php apache2-dev build-essential libcap-dev php-cli php-mysql php-mbstring \
   php-xml php-curl mysql-server mysql-client certbot python3-certbot-apache \
-  vsftpd curl wget unzip acl rsync ca-certificates git composer cron
+  vsftpd curl wget unzip acl rsync ca-certificates git composer cron php-sqlite3 php-zip
 
 # Certbot: verificación en Ubuntu 24.04 (apt) + plugin del Apache.
 log "   Comprobando Certbot y el plugin apache..."
