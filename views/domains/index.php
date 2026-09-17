@@ -22,33 +22,9 @@
   </div>
   <p class="muted">Usa una <a href="<?= url('apps') ?>">aplicación</a> ya clonada. Puedes crear varios dominios/subdominios que apunten a la misma app o a carpetas distintas.</p>
 </form>
+<?php else: ?>
+<div class="alert mb-1">No tienes aplicaciones. <a href="<?= url('apps/create') ?>">Creá una aplicación</a> primero para poder vincularla a un dominio.</div>
 <?php endif; ?>
-
-<?php /* ---- Crear aplicación desde GitHub (legacy) ---- */ ?>
-<form class="card mb-1" method="post" action="<?= url('domains') ?>" data-ajax="1">
-  <?= csrf_field() ?>
-  <h4>Crear dominio + aplicación desde GitHub</h4>
-  <div class="row-form">
-    <?php if ($isAdmin): ?>
-      <select class="form-control" name="user_id">
-        <?php foreach ($users as $x): ?>
-          <option value="<?= (int)$x['id'] ?>" <?= (int)$x['id']===(int)$ctx['id']?'selected':'' ?>><?= e($x['user']) ?></option>
-        <?php endforeach; ?>
-      </select>
-    <?php endif; ?>
-    <input class="form-control" name="git_url" placeholder="URL repositorio (https://github.com/usuario/proyecto)" required style="flex:2">
-    <input class="form-control" name="git_branch" placeholder="rama (default: main)" value="main">
-    <input class="form-control" name="git_token" type="password" placeholder="token (solo si el repo es PRIVADO)" autocomplete="new-password">
-    <input class="form-control" name="domain" placeholder="dominio o subdominio (ej: app.midominio.com)" required>
-    <input class="form-control" name="folder" placeholder="carpeta destino (default: dominio)">
-    <input class="form-control" name="project_path" placeholder="ruta proyecto dentro del repo (opcional, p.ej. src)">
-    <input class="form-control" name="document_root" placeholder="DocumentRoot (vacío = auto: Laravel → public, WordPress/PHP → raíz)">
-    <input class="form-control" name="php_version" placeholder="versión PHP (ej: 8.1, vacío = sistema)">
-    <p class="muted">Clona directamente en <code>/home/&lt;usuario&gt;/&lt;carpeta&gt;</code> y despliega. Para apps reutilizables, primero crea la app en <a href="<?= url('apps') ?>">Aplicaciones</a> y luego vincúlala aquí.</p>
-    <label class="check-line"><input type="checkbox" name="ssl" value="1" checked> &nbsp;SSL</label>
-    <button class="btn btn-primary" type="submit">Clonar y crear</button>
-  </div>
-</form>
 
 <?php /* ---- Dominio manual (sin repo) ---- */ ?>
 <form class="card mb-1" method="post" action="<?= url('domains') ?>" data-ajax="1">

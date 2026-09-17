@@ -65,7 +65,6 @@ $ROUTES = [
     ['POST', '/files/save',         ['files',   'save']],
     ['POST', '/files/mkdir',        ['files',   'mkdir']],
     ['POST', '/files/upload',       ['files',   'upload']],
-    ['POST', '/files/clone',        ['files',   'clone']],
     ['POST', '/files/unzip',        ['files',   'unzip']],
     ['POST', '/files/rename',       ['files',   'rename']],
     ['POST', '/files/chmod',        ['files',   'chmod']],

@@ -38,21 +38,6 @@
   </form>
 </div>
 
-<div class="card mb-1">
-  <h4>Clonar repositorio Git en esta carpeta</h4>
-  <form class="row-form" method="post" action="<?= url('files/clone') ?>" data-ajax="1">
-    <?= csrf_field() ?>
-    <input type="hidden" name="u" value="<?= (int)$ctx['id'] ?>">
-    <input type="hidden" name="p" value="<?= e($rel) ?>">
-    <input class="form-control" name="name" placeholder="Carpeta destino" required>
-    <input class="form-control" name="git_url" placeholder="https://github.com/usuario/proyecto" required>
-    <input class="form-control" name="git_branch" placeholder="rama (default: main)" value="main">
-    <input class="form-control" name="git_token" type="password" placeholder="token (solo repo privado)" autocomplete="new-password">
-    <button class="btn btn-primary" type="submit"><svg class="ic"><use href="#i-download"/></svg> Clonar</button>
-  </form>
-  <p class="muted">Clona sin crear dominio. Luego puedes crear un dominio y apuntar su DocumentRoot a esta carpeta.</p>
-</div>
-
 <div class="row-form mb-1">
   <a class="btn btn-ghost btn-sm mr-1" href="<?= url('files?u='.$ctx['id'].'&p='.urlencode($rel).($showHidden?'':'&h=1')) ?>"><?= $showHidden ? 'Ocultar archivos ocultos' : 'Mostrar ocultos' ?></a>
 </div>
