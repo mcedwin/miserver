@@ -3,6 +3,29 @@
   <h3>Discos</h3>
 </div>
 
+<section class="card mb-1">
+  <div class="section-header">
+    <h4>Backups</h4>
+    <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
+      <svg class="ic"><use href="#i-upload"/></svg> Crear backup
+    </button>
+  </div>
+  <?php if (!empty($backups)): ?>
+    <div class="list-group scroll-y" style="max-height:180px">
+      <?php foreach ($backups as $b): ?>
+        <div class="list-row">
+          <span class="mono" title="<?= e(implode(' ', $b)) ?>"><?= e($b[count($b) - 1] ?? '?') ?></span>
+          <span><?= e($b[1] ?? '') ?> bytes</span>
+          <span class="muted"><?= e($b[2] ?? '') ?></span>
+          <a class="btn btn-sm" href="<?= url('download?f=' . urlencode($b[count($b) - 1] ?? '')) ?>">descargar</a>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <p class="muted">Aún no hay backups. Pulsa <b>Crear backup</b> para respaldar archivos, carpetas y bases de datos. Cuando termine, aparecerá aquí la opción de descargar.</p>
+  <?php endif; ?>
+</section>
+
 <?php if ($isAdmin): ?>
   <div class="card mb-1">
     <div class="row-form">

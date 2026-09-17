@@ -17,11 +17,13 @@ function ctrl_disk_index(): void
         }
         usort($users, static fn($a, $b) => $b['bytes'] <=> $a['bytes']);
     }
+    $info = sys_info();
     render('disk/index', [
         'title' => 'Discos',
         'active' => 'disk',
         'isAdmin' => $isAdmin,
         'users' => $users,
+        'backups' => parse_pipe_lines($info['backups']['raw'] ?? ''),
     ]);
 }
 

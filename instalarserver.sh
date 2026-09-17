@@ -309,10 +309,10 @@ cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
     RUidGid miserver miserver
   </IfModule>
 
-  <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
+  <LocationMatch "^(/var/|/install/|/app/|/views/|/controllers/|/core/|/res/|/\.env(\.|$)|/\.git(/|$)|/\.gitignore|/\.htaccess|/cli\.php)">
     Require all denied
   </LocationMatch>
-  <FilesMatch "\.(sql|md|sh|example|bak|swp)$">
+  <FilesMatch "\.(sql|md|sh|example|bak|swp|log)$">
     Require all denied
   </FilesMatch>
 
@@ -347,10 +347,10 @@ cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
     RUidGid miserver miserver
   </IfModule>
 
-  <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
+  <LocationMatch "^(/var/|/install/|/app/|/views/|/controllers/|/core/|/res/|/\.env(\.|$)|/\.git(/|$)|/\.gitignore|/\.htaccess|/cli\.php)">
     Require all denied
   </LocationMatch>
-  <FilesMatch "\.(sql|md|sh|example|bak|swp)$">
+  <FilesMatch "\.(sql|md|sh|example|bak|swp|log)$">
     Require all denied
   </FilesMatch>
 
@@ -396,10 +396,10 @@ cat > /etc/apache2/sites-available/miserver-panel-8443.conf <<APACHE
     RUidGid miserver miserver
   </IfModule>
 
-  <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
+  <LocationMatch "^(/var/|/install/|/app/|/views/|/controllers/|/core/|/res/|/\.env(\.|$)|/\.git(/|$)|/\.gitignore|/\.htaccess|/cli\.php)">
     Require all denied
   </LocationMatch>
-  <FilesMatch "\.(sql|md|sh|example|bak|swp)$">
+  <FilesMatch "\.(sql|md|sh|example|bak|swp|log)$">
     Require all denied
   </FilesMatch>
 
