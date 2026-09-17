@@ -250,22 +250,51 @@ systemctl daemon-reload >/dev/null 2>&1 || true
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 
-# Certificado autofirmado para poder usar HTTPS por IP/subdominio de inmediato
-# (mientras no haya DNS + Let's Encrypt). Cubre IP y dominio del panel.
+# Certificado autofirmado para HTTPS por IP/túnel/panel mientras no haya LE.
+# SAN: IP pública, loopback (para el túnel SSH) y subdominio del panel.
 install -d -m 0755 /etc/ssl/miserver
 if [ ! -f /etc/ssl/miserver/miserver-selfsigned.key ] || [ ! -f /etc/ssl/miserver/miserver-selfsigned.crt ]; then
   openssl req -x509 -nodes -newkey rsa:2048 -days 1095 \
     -keyout /etc/ssl/miserver/miserver-selfsigned.key \
     -out /etc/ssl/miserver/miserver-selfsigned.crt \
     -subj "/CN=${PANEL_HOST}" \
-    -addext "subjectAltName=IP:${IP},DNS:${PANEL_HOST},DNS:www.${PANEL_HOST}" >/dev/null 2>&1
+    -addext "subjectAltName=IP:${IP},IP:127.0.0.1,DNS:${PANEL_HOST},DNS:localhost" >/dev/null 2>&1
 fi
 chmod 600 /etc/ssl/miserver/miserver-selfsigned.key 2>/dev/null || true
 
-cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
+# 1) Catch-all NEGADO: cualquier Host sin vhost (IP, dominio raiz, subdominios
+#    sin sitio) recibe 403. El panel SOLO responde al ServerName exacto.
+cat > /etc/apache2/sites-available/miserver-default.conf <<APACHE
 <VirtualHost _default_:80>
+  ServerName miserver-default.invalid
+  DocumentRoot /var/www/html
+  <Directory /var/www/html>
+    Require all denied
+  </Directory>
+  ErrorLog \${APACHE_LOG_DIR}/miserver-default-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-default-access.log combined
+</VirtualHost>
+
+<VirtualHost _default_:443>
+  ServerName miserver-default.invalid
+  DocumentRoot /var/www/html
+  SSLEngine on
+  SSLCertificateFile /etc/ssl/miserver/miserver-selfsigned.crt
+  SSLCertificateKeyFile /etc/ssl/miserver/miserver-selfsigned.key
+  <Directory /var/www/html>
+    Require all denied
+  </Directory>
+  ErrorLog \${APACHE_LOG_DIR}/miserver-default-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-default-access.log combined
+</VirtualHost>
+APACHE
+chmod 644 /etc/apache2/sites-available/miserver-default.conf
+
+# 2) Panel SOLO en el ServerName exacto (sin ServerAlias: ni IP ni www ni raiz
+#    lo sirven; esos caen al catch-all 403 o al túnel 8443).
+cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
+<VirtualHost *:80>
   ServerName $PANEL_HOST
-  ServerAlias www.$PANEL_HOST $IP
   DocumentRoot /home/miserver/panel
 
   <Directory /home/miserver/panel>
@@ -298,9 +327,8 @@ cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
   CustomLog \${APACHE_LOG_DIR}/miserver-panel-access.log combined
 </VirtualHost>
 
-<VirtualHost _default_:443>
+<VirtualHost *:443>
   ServerName $PANEL_HOST
-  ServerAlias www.$PANEL_HOST $IP
   DocumentRoot /home/miserver/panel
 
   SSLEngine on
@@ -338,9 +366,62 @@ cat > "/etc/apache2/sites-available/${PANEL_HOST}.conf" <<APACHE
 </VirtualHost>
 APACHE
 chmod 644 "/etc/apache2/sites-available/${PANEL_HOST}.conf"
+
+# 3) Panel por IP sin DNS: puerto administrativo 8443 directo (0.0.0.0).
+#    Acceso: https://${IP}:8443  (HTTPS con certificado autofirmado).
+#    Para endurecerlo se puede restringir en ufw a la propia IP de admin.
+cat > /etc/apache2/conf-available/miserver-panel-8443.conf <<APACHE
+Listen 8443
+APACHE
+chmod 644 /etc/apache2/conf-available/miserver-panel-8443.conf
+
+cat > /etc/apache2/sites-available/miserver-panel-8443.conf <<APACHE
+<VirtualHost *:8443>
+  ServerName $PANEL_HOST
+  DocumentRoot /home/miserver/panel
+
+  SSLEngine on
+  SSLCertificateFile /etc/ssl/miserver/miserver-selfsigned.crt
+  SSLCertificateKeyFile /etc/ssl/miserver/miserver-selfsigned.key
+
+  <Directory /home/miserver/panel>
+    Options -Indexes
+    AllowOverride None
+    Require all granted
+    FallbackResource /index.php
+  </Directory>
+
+  <IfModule mod_ruid2.c>
+    RMode config
+    RUidGid miserver miserver
+  </IfModule>
+
+  <LocationMatch "^(/var/|/install/|/core/|/res/|/\.env(\.|$)|/\.git/|/\.gitignore|/cli\.php)">
+    Require all denied
+  </LocationMatch>
+  <FilesMatch "\.(sql|md|sh|example|bak|swp)$">
+    Require all denied
+  </FilesMatch>
+
+  <IfModule mod_php.c>
+    php_admin_value upload_max_filesize 64M
+    php_admin_value post_max_size 80M
+    php_admin_value memory_limit 128M
+    php_admin_value display_errors Off
+  </IfModule>
+
+  ErrorLog \${APACHE_LOG_DIR}/miserver-panel-8443-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-panel-8443-access.log combined
+</VirtualHost>
+APACHE
+chmod 644 /etc/apache2/sites-available/miserver-panel-8443.conf
+
+# Activa catch-all (primero), panel (solo ServerName) y puerto administración.
+a2ensite miserver-default.conf >/dev/null 2>&1 || true
 a2ensite "${PANEL_HOST}.conf" >/dev/null 2>&1 || true
-# Desactiva el sitio por defecto de Ubuntu: de lo contrario, las peticiones por IP
-# (o con Host desconocido) las gana "000-default" (/var/www/html) y no el panel.
+a2ensite miserver-panel-8443.conf >/dev/null 2>&1 || true
+a2enconf miserver-panel-8443 >/dev/null 2>&1 || true
+# Desactiva los sitios por defecto de Ubuntu.
 a2dissite 000-default.conf >/dev/null 2>&1 || true
 a2dissite default-ssl.conf >/dev/null 2>&1 || true
 apache2ctl -t >/dev/null && systemctl reload apache2 || exit 1
@@ -358,19 +439,22 @@ cat <<EOF
 ═══════════════════════════════════════════════════════════════════
   Panel "Mi Server" instalado.
 
-  URL del panel : http://${PANEL_HOST}   (o directamente por IP: http://${IP})
-                 HTTPS: entra al panel → Dominios → botón SSL cuando el DNS resuelva
+  URL del panel : https://${PANEL_HOST}   (solo este Host sirve el panel)
+                 Por IP sin DNS: https://${IP}:8443 (HTTPS autofirmado)
 
   Admin         : ${ADMIN_USER}  /  ${ADMIN_PASS}
 
   Notas:
    * Abre los puertos en el firewall si usas ufw/os-security:
        ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp
+       ufw allow 8443/tcp  (panel por IP; limítalo a tu IP: ufw allow from TU_IP to any port 8443)
        ufw allow 21/tcp; ufw allow 10000:10100/tcp (FTP pasivo)
        ufw allow 3306/tcp  (MySQL REMOTO; los usuarios se crean como 'user'@'%')
-   * El dominio ${PANEL_HOST} apunta al PANEL (Apache + mod_ruid2 como
-     usuario 'miserver'). Los sitios de las cuentas se crean desde el panel
-     con sus propios dominios.
+   * El panel SOLO responde en el ServerName exacto ${PANEL_HOST} (subdominio
+     dedicado) o en https://${IP}:8443 (acceso admin por IP). Cualquier otro
+     Host (dominio raiz, subdominios sin sitio) recibe 403 del vhost catch-all.
+   * Los sitios de las cuentas se crean desde el panel con sus propios dominios
+     (ServerName exacto).
    * MySQL remoto: la cuenta 'admin' ve todas las bases; el resto solo las suyas
      (prefijo usuario_). El puerto 3306 ya queda a la escucha (bind 0.0.0.0).
    * Certbot se instaló por apt (Ubuntu 24.04) con el plugin apache. La emisión

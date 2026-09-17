@@ -391,7 +391,7 @@ case "$cmd" in
     i=0
     while [ "$i" -lt "$MAX_INTENTOS" ]; do
       i=$((i + 1))
-      ip="$(getent hosts "$d" | awk '{print $1}' | head -1)"
+      ip="$(getent hosts "$d" | awk '{print $1}' | head -1 || true)"
       echo "[cert] $d intento $i/$MAX_INTENTOS (DNS=$ip)"
       if [ -n "$ip" ] && run_cert; then
         apache_reload
