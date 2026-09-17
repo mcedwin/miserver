@@ -228,6 +228,8 @@ function ctrl_apps_env(array $p): void
     if ($r['exit'] === 0 && $r['err'] === '') {
         $content = $r['out'];
         $existed = true;
+    } elseif (ctl_run(['fs:exists', $owner['user'], $rel])['exit'] === 0) {
+        respond(false, 'No se pudo leer .env: ' . e($r['err'] ?: $r['out']));
     } else {
         $exampleRel = app_env_example_path($row, $owner);
         if ($exampleRel !== null) {
