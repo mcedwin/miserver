@@ -247,7 +247,7 @@ deploy_ensure_env() { # $1=usuario $2=carpeta-proyecto [$3=phpbin]
   cp -a -- "$src" "$envfile"
   sed -i 's/\r$//' "$envfile" 2>/dev/null || true
   chown "$u:$u" "$envfile"
-  chmod 600 "$envfile" 2>/dev/null || true
+  chmod 644 "$envfile" 2>/dev/null || true
   log "env creado desde $(basename "$src") para $u:$target"
     if [ -f "$target/artisan" ]; then
     if grep -qE '^APP_KEY=[[:space:]]*$' "$envfile" 2>/dev/null || ! grep -qE '^APP_KEY=' "$envfile" 2>/dev/null; then

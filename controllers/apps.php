@@ -224,39 +224,25 @@ function ctrl_apps_env(array $p): void
     $content = '';
     $existed = false;
     $source = '';
-    $r = ctl_run_read(['fs:cat', $owner['user'], $rel, '2097152']);
     $directPath = '/home/' . $owner['user'] . '/' . $rel;
-    if (($r['exit'] !== 0 || ($r['out'] ?? '') === '') && is_readable($directPath)) {
-        $direct = @file_get_contents($directPath);
-        if ($direct !== false && $direct !== '') {
-            $r = ['exit' => 0, 'out' => $direct];
-        } elseif (($fh = @fopen($directPath, 'r')) !== false) {
-            $direct = '';
-            while (!feof($fh)) {
-                $chunk = @fread($fh, 8192);
-                if ($chunk === false) {
-                    break;
-                }
-                $direct .= $chunk;
-            }
-            fclose($fh);
-            if ($direct !== '') {
-                $r = ['exit' => 0, 'out' => $direct];
-            }
+    $content = @file_get_contents($directPath) ?: '';
+    $existed = $content !== '';
+
+    if (!$existed && @is_file($directPath)) {
+        $r = ctl_run_read(['fs:cat', $owner['user'], $rel, '2097152']);
+        if ($r['exit'] === 0 && $r['out'] !== '') {
+            $content = $r['out'];
+            $existed = true;
+        } else {
+            respond(false, 'No se pudo leer .env: ' . e($r['err'] ?: $r['out']));
         }
     }
-    if ($r['exit'] === 0) {
-        $content = $r['out'];
-        $existed = true;
-    } elseif (ctl_run(['fs:exists', $owner['user'], $rel])['exit'] === 0) {
-        $directPath = '/home/' . $owner['user'] . '/' . $rel;
-        $directResult = @file_get_contents($directPath);
-        respond(false, 'No se pudo leer .env. wrapper_exit=' . $r['exit'] . ' wrapper_out_len=' . strlen($r['out']) . ' wrapper_err=' . e($r['err'] ?? '') . ' direct_path=' . e($directPath) . ' direct_readable=' . (is_readable($directPath) ? '1' : '0') . ' direct_result_type=' . gettype($directResult) . ' direct_result_len=' . strlen((string) $directResult));
-    } else {
+
+    if (!$existed) {
         $exampleRel = app_env_example_path($row, $owner);
         if ($exampleRel !== null) {
-            $re = ctl_run_exec(['fs:cat', $owner['user'], $exampleRel, '2097152']);
-            if ($re['exit'] === 0) {
+            $re = ctl_run_read(['fs:cat', $owner['user'], $exampleRel, '2097152']);
+            if ($re['exit'] === 0 && $re['out'] !== '') {
                 $content = $re['out'];
                 $source = basename($exampleRel);
             }

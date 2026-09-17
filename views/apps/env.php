@@ -1,16 +1,5 @@
 <?php /** views/apps/env.php — editor seguro del .env de la aplicación */ ?>
 <a class="btn btn-sm" href="<?= url('apps') ?>">← Volver</a>
-<?php
-$debugPath = '/home/' . ($owner['user'] ?? '') . '/' . ($rel ?? '');
-$debugStat = @stat($debugPath);
-$debugPerms = $debugStat ? sprintf('%o', $debugStat['mode'] & 07777) : 'n/a';
-$debugSize = $debugStat ? (int) $debugStat['size'] : 'n/a';
-$debugReadable = @is_readable($debugPath) ? '1' : '0';
-$debugFgc = @file_get_contents($debugPath);
-$debugFgcType = gettype($debugFgc);
-$debugFgcLen = is_string($debugFgc) ? strlen($debugFgc) : 'n/a';
-?>
-<pre class="card" style="background:#222;color:#0f0;padding:1rem">DEBUG: content_len=<?= strlen($content ?? '') ?> existed=<?= $existed ? '1' : '0' ?> source=<?= e($source ?? '') ?> path=<?= e($debugPath) ?> perms=<?= e($debugPerms) ?> size=<?= e((string)$debugSize) ?> is_readable=<?= e($debugReadable) ?> fgc_type=<?= e($debugFgcType) ?> fgc_len=<?= e((string)$debugFgcLen) ?></pre>
 <div class="card mt-1">
   <h3>Editar <span class="mono">.env</span> · <?= e($row['name']) ?></h3>
   <p class="muted mb-1">
