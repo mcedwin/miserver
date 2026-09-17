@@ -429,7 +429,10 @@ apache2ctl -t >/dev/null && systemctl reload apache2 || exit 1
 # ---------------------------------------------------------------------------
 log "8/9 Preparando directorio de backups (manuales, desde el panel)."
 # ---------------------------------------------------------------------------
-install -d -o root -g root -m 0700 /var/backups/miserver
+# 0750 root:miserver para que el panel (que corre como usuario miserver) pueda
+# leer/traversal el directorio y servir las descargas, sin exponer el listado a
+# todos los usuarios del sistema.
+install -d -o root -g miserver -m 0750 /var/backups/miserver
 
 # ---------------------------------------------------------------------------
 log "9/9 Resumen final."
