@@ -47,7 +47,7 @@ apt-get upgrade -y
 apt-get install -y --no-install-recommends \
   apache2 libapache2-mod-php apache2-dev build-essential libcap-dev php-cli php-mysql php-mbstring \
   php-xml php-curl mysql-server mysql-client certbot python3-certbot-apache \
-  vsftpd curl wget unzip acl rsync ca-certificates git
+  vsftpd curl wget unzip acl rsync ca-certificates git cron
 
 # Certbot: verificación en Ubuntu 24.04 (apt) + plugin del Apache.
 log "   Comprobando Certbot y el plugin apache..."
@@ -174,8 +174,8 @@ elif [ ! -f /home/miserver/panel/res/miserver.sql ]; then
     rm -rf /tmp/panel-src
   fi
 fi
-echo "   limpieza: no se despliega core/ (panel antiguo) ni .git"
-rm -rf /home/miserver/panel/core /home/miserver/panel/.git
+echo "   limpieza: no se despliega core/ (panel antiguo); se conserva .git para actualizar con 'git pull'"
+rm -rf /home/miserver/panel/core
 for d in var/sessions var/cache var/log; do install -d -o miserver -g miserver "/home/miserver/panel/$d"; done
 chown -R miserver:miserver /home/miserver/panel
 chmod -R u+rwX,go-w /home/miserver/panel
@@ -209,6 +209,19 @@ mysql -u miserver -p"${PANEL_DB_PASS}" miserver < /home/miserver/panel/res/miser
 log "6/9 Instalando wrapper privilegiado + sudoers."
 # ---------------------------------------------------------------------------
 install -m 0755 /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl
+
+# Un cron de root mantiene la copia /usr/local/sbin/miserver-ctl sincronizada
+# con el repo del panel: tras un "git pull" (o edición manual), el wrapper se
+# refresca en < 1 minuto sin pasos extra.
+cat > /etc/cron.d/miserver <<'EOF'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Si cambia el wrapper del repo, actualiza la copia root.
+* * * * * root cmp -s /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl || /usr/bin/install -m 0755 /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl
+EOF
+chown root:root /etc/cron.d/miserver
+chmod 644 /etc/cron.d/miserver
+echo "   cron: sincronización del wrapper activa (/etc/cron.d/miserver)"
 
 cat > /etc/sudoers.d/miserver <<'EOF'
 miserver ALL=(root) NOPASSWD: /usr/local/sbin/miserver-ctl
