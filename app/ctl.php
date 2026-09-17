@@ -75,11 +75,10 @@ function ctl_run_raw(array $args): array
         return ['exit' => 127, 'out' => '', 'err' => 'wrapper miserver-ctl no disponible'];
     }
     $cmd = array_merge(['sudo', '-n', ctl_path()], $args);
-    $proc = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    $proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     if (!is_resource($proc)) {
         return ['exit' => 127, 'out' => '', 'err' => 'no se pudo ejecutar el wrapper'];
     }
-    fclose($pipes[0]);
     $out = stream_get_contents($pipes[1]);
     $err = stream_get_contents($pipes[2]);
     fclose($pipes[1]);
