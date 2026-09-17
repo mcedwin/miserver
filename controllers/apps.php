@@ -225,7 +225,9 @@ function ctrl_apps_env(array $p): void
     $existed = false;
     $source = '';
     $r = ctl_run_exec(['fs:cat', $owner['user'], $rel, '2097152']);
-    file_put_contents('/tmp/miserver_env_debug.log', json_encode(['time' => date('c'), 'exit' => $r['exit'], 'out_len' => strlen($r['out'] ?? ''), 'out' => $r['out'] ?? '']) . "\n", FILE_APPEND | LOCK_EX);
+    $logDir = '/home/miserver/panel/tmp';
+    @mkdir($logDir, 0770, true);
+    @file_put_contents($logDir . '/miserver_env_debug.log', json_encode(['time' => date('c'), 'exit' => $r['exit'], 'out_len' => strlen($r['out'] ?? ''), 'out' => $r['out'] ?? '']) . "\n", FILE_APPEND | LOCK_EX);
     if ($r['exit'] === 0) {
         $content = $r['out'];
         $existed = true;
