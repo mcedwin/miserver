@@ -236,7 +236,9 @@ function ctrl_apps_env(array $p): void
         $content = $r['out'];
         $existed = true;
     } elseif (ctl_run(['fs:exists', $owner['user'], $rel])['exit'] === 0) {
-        respond(false, 'No se pudo leer .env: ' . e($r['err'] ?: $r['out']));
+        $directPath = '/home/' . $owner['user'] . '/' . $rel;
+        $directResult = @file_get_contents($directPath);
+        respond(false, 'No se pudo leer .env. wrapper_exit=' . $r['exit'] . ' wrapper_out_len=' . strlen($r['out']) . ' wrapper_err=' . e($r['err'] ?? '') . ' direct_path=' . e($directPath) . ' direct_readable=' . (is_readable($directPath) ? '1' : '0') . ' direct_result_type=' . gettype($directResult) . ' direct_result_len=' . strlen((string) $directResult));
     } else {
         $exampleRel = app_env_example_path($row, $owner);
         if ($exampleRel !== null) {
