@@ -176,6 +176,8 @@ PHP); si estaba vinculado a una app, se desvincula.
 
 Rutas web del módulo: `/apps`, `/apps/create`, `/apps/{id}/edit|update|deploy|pull|migrate|reinstall|delete`,
 `/apps/{id}/env` (editor del `.env`) y `/apps/{id}/env-from-example`.
+El botón **Pull** ejecuta el comando `app:pull` del wrapper, que hace `git pull` y,
+si tiene éxito, corre el despliegue (Composer + caches) en la misma tarea.
 
 El esquema de `domain` incluye `app_id`, `folder`, `document_root` y `php_version`;
 las columnas legacy (`project_type`, `git_url`, etc.) se mantienen solo por

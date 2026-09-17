@@ -169,13 +169,10 @@ function ctrl_apps_pull(array $p): void
         $gitToken = dec($row['git_token']);
     }
 
-    $jid = job_create('gitpull', $row['name'], (int) $owner['id']);
-    job_spawn($jid, ['git:pull', $owner['user'], $row['folder'], (string) ($row['git_branch'] ?: 'main'), $gitToken]);
+    $jid = job_create('pull', $row['name'], (int) $owner['id']);
+    job_spawn($jid, ['app:pull', $owner['user'], $row['folder'], (string) ($row['git_branch'] ?: 'main'), $gitToken, (string) $row['php_version']]);
 
-    $jid2 = job_create('deploy', $row['name'], (int) $owner['id']);
-    job_spawn($jid2, ['app:deploy', $owner['user'], $row['folder'], (string) $row['php_version'], 'all']);
-
-    respond(true, 'Pull iniciado. Al terminar se desplegará Composer + caches.', url('jobs'));
+    respond(true, 'Pull + despliegue iniciados en secuencia.', url('jobs'));
 }
 
 function ctrl_apps_reinstall(array $p): void

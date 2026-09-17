@@ -249,11 +249,77 @@ deploy_ensure_env() { # $1=usuario $2=carpeta-proyecto [$3=phpbin]
   chown "$u:$u" "$envfile"
   chmod 600 "$envfile" 2>/dev/null || true
   log "env creado desde $(basename "$src") para $u:$target"
-  if [ -f "$target/artisan" ]; then
+    if [ -f "$target/artisan" ]; then
     if grep -qE '^APP_KEY=[[:space:]]*$' "$envfile" 2>/dev/null || ! grep -qE '^APP_KEY=' "$envfile" 2>/dev/null; then
       runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan key:generate --force --no-interaction >/dev/null 2>&1 || true
     fi
   fi
+}
+
+# Cuerpo de app:deploy; se reusa en app:pull.
+do_app_deploy() {
+  local u="$1" rel="$2" pv="${3:-}" steps="${4:-all}"
+  vuser "$u"; vrel "$rel"; vver "$pv"
+  case "$steps" in all|composer|cache|migrate) ;; *) die "pasos invalidos: $steps" ;; esac
+  ensure_linux_user "$u"
+  fs_check "$u" "$rel"
+  local target="/home/$u/$rel"
+  [ -d "$target" ] || die "no existe la carpeta '$rel'"
+  local phpbin=/usr/bin/php
+  if [ -n "$pv" ] && [ -x "/usr/bin/php${pv}" ]; then
+    phpbin="/usr/bin/php${pv}"
+  fi
+  echo "[deploy] usuario=$u php=$phpbin pasos=$steps"
+  echo "[deploy] proyecto=/home/$u/$rel"
+  deploy_ensure_env "$u" "$target" "$phpbin"
+  if [ "$steps" = all ] || [ "$steps" = composer ]; then
+    if [ -f "$target/composer.json" ]; then
+      local carr=() phar=0
+      if [ -x /usr/local/bin/composer ]; then carr=(/usr/local/bin/composer)
+      elif command -v composer >/dev/null 2>&1; then carr=("$(command -v composer)")
+      elif [ -f "$target/composer.phar" ]; then carr=("$phpbin" "$target/composer.phar"); phar=1
+      fi
+      if [ "${#carr[@]}" -eq 0 ]; then
+        echo "[deploy] Composer no detectado; instalando /usr/local/bin/composer..."
+        if ! curl -fsSL https://getcomposer.org/installer | "$phpbin" -- --install-dir=/usr/local/bin --filename=composer 2>&1; then
+          echo "error: no se pudo instalar Composer" >&2
+          exit 1
+        fi
+        carr=(/usr/local/bin/composer)
+      fi
+      echo "[deploy] composer install --no-dev --optimize-autoloader ..."
+      if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "${carr[@]}" install --no-interaction --prefer-dist --no-dev --optimize-autoloader 2>&1; then
+        echo "error: 'composer install' falló" >&2
+        exit 1
+      fi
+    else
+      echo "[deploy] sin composer.json, se omite composer"
+    fi
+  fi
+  if [ "$steps" = all ] || [ "$steps" = cache ]; then
+    if [ -f "$target/artisan" ]; then
+      echo "[deploy] artisan config:cache ..."
+      timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan config:cache 2>&1 || { echo "error: 'config:cache' falló" >&2; exit 1; }
+      echo "[deploy] artisan route:cache ..."
+      timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan route:cache 2>&1 || { echo "error: 'route:cache' falló" >&2; exit 1; }
+      echo "[deploy] artisan view:cache ..."
+      timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan view:cache 2>&1 || { echo "error: 'view:cache' falló" >&2; exit 1; }
+    else
+      echo "[deploy] sin artisan, se omiten caches de Laravel (CodeIgniter usa spark, carece de config:cache)"
+    fi
+  fi
+  if [ "$steps" = migrate ]; then
+    if [ -f "$target/artisan" ]; then
+      echo "[deploy] artisan migrate --force ..."
+      timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan migrate --force 2>&1 || { echo "error: 'migrate' falló" >&2; exit 1; }
+    elif [ -f "$target/spark" ]; then
+      echo "[deploy] spark migrate (CodeIgniter 4) ..."
+      timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" spark migrate 2>&1 || { echo "error: 'spark migrate' falló" >&2; exit 1; }
+    else
+      echo "[deploy] sin artisan/spark, no hay migraciones que aplicar"
+    fi
+  fi
+  echo ok
 }
 
 # -----------------------------------------------------------------------------
@@ -938,6 +1004,37 @@ case "$cmd" in
     echo ok
     ;;
 
+  app:pull)
+    [ $# -ge 2 ] || die "app:pull <usuario> <carpeta> [rama] [token] [php-version]"
+    u="$1"; f="$2"; br="${3:-}"; tok="${4:-}"; pv="${5:-}"
+    vuser "$u"; vrel "$f"
+    [ -n "$br" ] && vbranch "$br"
+    [ -n "$tok" ] && vtok "$tok"
+    vver "$pv"
+    ensure_linux_user "$u"
+    target="/home/$u/$f"
+    [ -d "$target/.git" ] || die "no es un repositorio git: $f"
+    export GIT_TERMINAL_PROMPT=0
+    helper=
+    trap 'rm -f "$helper"' EXIT
+    if [ -n "$tok" ]; then
+      helper="$(mktemp)"
+      chmod 600 "$helper"
+      printf '#!/bin/sh\necho username=x-access-token\necho password=%s\n' "$tok" > "$helper"
+    fi
+    extra=(-c credential.helper=)
+    if [ -n "$helper" ]; then
+      extra=(-c credential.helper= -c credential.helper="$helper")
+    fi
+    if [ -n "$br" ]; then
+      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || die "git pull fallo"
+    else
+      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || die "git pull fallo"
+    fi
+    chown -R "$u:$u" "$target" 2>/dev/null || true
+    do_app_deploy "$u" "$f" "$pv" "all"
+    ;;
+
   git:detect)
     [ $# -ge 2 ] || die "git:detect <usuario> <carpeta>"
     u="$1"; r="$2"; vuser "$u"; vrel "$r"
@@ -970,68 +1067,7 @@ case "$cmd" in
   #   pasos: all (composer+cache) | composer | cache | migrate
   app:deploy)
     [ $# -ge 2 ] || die "app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]"
-    u="$1"; rel="$2"; pv="${3:-}"; steps="${4:-all}"
-    vuser "$u"; vrel "$rel"; vver "$pv"
-    case "$steps" in all|composer|cache|migrate) ;; *) die "pasos invalidos: $steps" ;; esac
-    ensure_linux_user "$u"
-    fs_check "$u" "$rel"
-    target="/home/$u/$rel"
-    [ -d "$target" ] || die "no existe la carpeta '$rel'"
-    phpbin=/usr/bin/php
-    if [ -n "$pv" ] && [ -x "/usr/bin/php${pv}" ]; then
-      phpbin="/usr/bin/php${pv}"
-    fi
-    echo "[deploy] usuario=$u php=$phpbin pasos=$steps"
-    echo "[deploy] proyecto=/home/$u/$rel"
-    deploy_ensure_env "$u" "$target" "$phpbin"
-    if [ "$steps" = all ] || [ "$steps" = composer ]; then
-      if [ -f "$target/composer.json" ]; then
-        carr=(); phar=0
-        if [ -x /usr/local/bin/composer ]; then carr=(/usr/local/bin/composer)
-        elif command -v composer >/dev/null 2>&1; then carr=("$(command -v composer)")
-        elif [ -f "$target/composer.phar" ]; then carr=("$phpbin" "$target/composer.phar"); phar=1
-        fi
-        if [ "${#carr[@]}" -eq 0 ]; then
-          echo "[deploy] Composer no detectado; instalando /usr/local/bin/composer..."
-          if ! curl -fsSL https://getcomposer.org/installer | "$phpbin" -- --install-dir=/usr/local/bin --filename=composer 2>&1; then
-            echo "error: no se pudo instalar Composer" >&2
-            exit 1
-          fi
-          carr=(/usr/local/bin/composer)
-        fi
-        echo "[deploy] composer install --no-dev --optimize-autoloader ..."
-        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "${carr[@]}" install --no-interaction --prefer-dist --no-dev --optimize-autoloader 2>&1; then
-          echo "error: 'composer install' falló" >&2
-          exit 1
-        fi
-      else
-        echo "[deploy] sin composer.json, se omite composer"
-      fi
-    fi
-    if [ "$steps" = all ] || [ "$steps" = cache ]; then
-      if [ -f "$target/artisan" ]; then
-        echo "[deploy] artisan config:cache ..."
-        timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan config:cache 2>&1 || { echo "error: 'config:cache' falló" >&2; exit 1; }
-        echo "[deploy] artisan route:cache ..."
-        timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan route:cache 2>&1 || { echo "error: 'route:cache' falló" >&2; exit 1; }
-        echo "[deploy] artisan view:cache ..."
-        timeout 300 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan view:cache 2>&1 || { echo "error: 'view:cache' falló" >&2; exit 1; }
-      else
-        echo "[deploy] sin artisan, se omiten caches de Laravel (CodeIgniter usa spark, carece de config:cache)"
-      fi
-    fi
-    if [ "$steps" = migrate ]; then
-      if [ -f "$target/artisan" ]; then
-        echo "[deploy] artisan migrate --force ..."
-        timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan migrate --force 2>&1 || { echo "error: 'migrate' falló" >&2; exit 1; }
-      elif [ -f "$target/spark" ]; then
-        echo "[deploy] spark migrate (CodeIgniter 4) ..."
-        timeout 600 runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" spark migrate 2>&1 || { echo "error: 'spark migrate' falló" >&2; exit 1; }
-      else
-        echo "[deploy] sin artisan/spark, no hay migraciones que aplicar"
-      fi
-    fi
-    echo ok
+    do_app_deploy "$@"
     ;;
 
   security:ban)
