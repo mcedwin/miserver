@@ -812,14 +812,14 @@ case "$cmd" in
     rc_homes=0; rc_db=0
     # homes: archivos + carpetas de todos los usuarios (excepto el panel)
     tar --acls --numeric-owner -czf "${prefix}-homes.tar.gz" -C /home --exclude=./miserver . >"$LOG_DIR/backup-homes.log" 2>&1 || rc_homes=$?
-    # bases de datos de usuarios (excluye las internas de MySQL)
+    # bases de datos de usuarios (excluye las internas de MySQL y la del panel)
     dbs=""
     while IFS= read -r db; do
-      case "$db" in information_schema|performance_schema|mysql|sys) continue;; esac
+      case "$db" in information_schema|performance_schema|mysql|sys|miserver) continue;; esac
       dbs="$dbs $db"
-    done < <(mysql --batch --skip-column-names -e 'SHOW DATABASES' 2>/dev/null || true)
+    done < <(msql --batch --skip-column-names -e 'SHOW DATABASES' 2>"$LOG_DIR/backup-db.log" || true)
     if [ -n "$dbs" ]; then
-      mysqldump --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
+      mysqldump --protocol=socket --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
     fi
     chown root:miserver "${prefix}"* 2>/dev/null || true
     chmod 0640 "${prefix}"* 2>/dev/null || true
@@ -904,6 +904,37 @@ case "$cmd" in
     # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
     chown -R "$u:$u" "$target" 2>/dev/null || true
     git -C "$target" remote set-url origin "$url" 2>/dev/null || true
+    echo ok
+    ;;
+
+  git:pull)
+    [ $# -ge 2 ] || die "git:pull <usuario> <carpeta> [rama] [token]"
+    u="$1"; f="$2"; br="${3:-}"; tok="${4:-}"
+    vuser "$u"; vrel "$f"
+    [ -n "$br" ] && vbranch "$br"
+    [ -n "$tok" ] && vtok "$tok"
+    log "git:pull $u $f${br:+ $br}"
+    ensure_linux_user "$u"
+    target="/home/$u/$f"
+    [ -d "$target/.git" ] || die "no es un repositorio git: $f"
+    export GIT_TERMINAL_PROMPT=0
+    helper=
+    trap 'rm -f "$helper"' EXIT
+    if [ -n "$tok" ]; then
+      helper="$(mktemp)"
+      chmod 600 "$helper"
+      printf '#!/bin/sh\necho username=x-access-token\necho password=%s\n' "$tok" > "$helper"
+    fi
+    extra=(-c credential.helper=)
+    if [ -n "$helper" ]; then
+      extra=(-c credential.helper= -c credential.helper="$helper")
+    fi
+    if [ -n "$br" ]; then
+      timeout 300 git -C "$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || die "git pull fallo"
+    else
+      timeout 300 git -C "$target" "${extra[@]}" pull --depth 1 2>&1 || die "git pull fallo"
+    fi
+    chown -R "$u:$u" "$target" 2>/dev/null || true
     echo ok
     ;;
 

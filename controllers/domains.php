@@ -318,6 +318,37 @@ function ctrl_domains_deploy(array $p): void
     respond(true, 'Despliegue iniciado (Composer + caches). Migraciones: usa el botón Migrar.', url('jobs'));
 }
 
+function ctrl_domains_pull(array $p): void
+{
+    $u = require_login();
+    csrf_check();
+    $row = domain_row_or_fail($p[0], $u);
+    $owner = domain_owner($row);
+    if (!$owner) {
+        respond(false, 'Usuario no válido.');
+    }
+    $gitUrl = trim($row['git_url'] ?? '');
+    if ($gitUrl === '') {
+        respond(false, 'Este dominio no fue creado desde un repositorio Git.');
+    }
+    $gitToken = '';
+    if (!empty($row['git_token'])) {
+        $gitToken = dec($row['git_token']);
+    }
+    $folder = (string) ($row['folder'] ?? '');
+    $appDir = domain_app_dir($row);
+    $pv = (string) ($row['php_version'] ?? '');
+
+    $jid = job_create('gitpull', $row['domain'], (int) $owner['id']);
+    job_spawn($jid, ['git:pull', $owner['user'], $folder, (string) ($row['git_branch'] ?: 'main'), $gitToken]);
+
+    // Tras el pull, desplegar automáticamente (Composer + caches, sin migraciones).
+    $jid2 = job_create('deploy', $row['domain'], (int) $owner['id']);
+    job_spawn($jid2, ['app:deploy', $owner['user'], $appDir, $pv, 'all']);
+
+    respond(true, 'Pull iniciado. Al terminar se desplegará Composer + caches.', url('jobs'));
+}
+
 function ctrl_domains_migrate(array $p): void
 {
     $u = require_login();

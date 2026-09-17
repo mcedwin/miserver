@@ -92,6 +92,7 @@
         <td class="actions" style="justify-content:flex-end">
           <?php if ($isApp): ?>
             <button class="btn btn-xs btn-info" data-post="<?= url('domains/'.$d['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" title="Composer + caches (sin migraciones)">Desplegar</button>
+            <button class="btn btn-xs btn-info" data-post="<?= url('domains/'.$d['id'].'/pull') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Hacer git pull de <?= e(basename($d['git_url'] ?? '')) ?> y desplegar?" title="git pull + Composer + caches">Pull</button>
             <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>" title="Ejecutar migraciones (artisan migrate / spark migrate)">Migrar</button>
             <a class="btn btn-xs" href="<?= url('domains/'.$d['id'].'/env') ?>" title="Editar archivo .env">.env</a>
             <button class="btn btn-xs" data-post="<?= url('domains/'.$d['id'].'/detect') ?>" data-csrf="<?= csrf_token() ?>" title="Re-detectar tipo de proyecto y actualizar DocumentRoot">Detectar</button>
