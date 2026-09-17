@@ -27,6 +27,27 @@ function ctrl_disk_index(): void
     ]);
 }
 
+/** Admin puede operar sobre cualquier usuario; el resto solo sobre el suyo. */
+function disk_resolve_user(array $u, string $postUser): string
+{
+    if (($u['role'] ?? '') === 'admin') {
+        if (!preg_match(RE_USERNAME, $postUser)) {
+            json_out(['ok' => false, 'msg' => 'Usuario no válido.']);
+        }
+        return $postUser;
+    }
+    return (string) ($u['user'] ?? '');
+}
+
+/** Mismas reglas que vrel() del wrapper: sin '..', sin '/', sin control. */
+function disk_valid_rel(string $rel): string
+{
+    if (strlen($rel) > 255 || strpos($rel, '..') !== false || preg_match('{[\\\\/\x00-\x1f]}', $rel)) {
+        json_out(['ok' => false, 'msg' => 'Ruta no válida.']);
+    }
+    return $rel;
+}
+
 /**
  * Explora una carpeta del home de un usuario y devuelve el detalle
  * de cada entrada (tamaño, tipo, mtime) como JSON.
@@ -34,21 +55,8 @@ function ctrl_disk_index(): void
 function ctrl_disk_browse(): void
 {
     $u = require_login();
-    $user = trim((string) post('user', ''));
-    $rel = (string) post('rel', '');
-
-    if (($u['role'] ?? '') === 'admin') {
-        if (!preg_match(RE_USERNAME, $user)) {
-            json_out(['ok' => false, 'msg' => 'Usuario no válido.']);
-        }
-    } else {
-        $user = (string) ($u['user'] ?? '');
-    }
-
-    // Mismas reglas que vrel(): sin '..', sin '/', sin caracteres de control.
-    if (strlen($rel) > 255 || strpos($rel, '..') !== false || preg_match('{[\\\\/\x00-\x1f]}', $rel)) {
-        json_out(['ok' => false, 'msg' => 'Ruta no válida.']);
-    }
+    $user = disk_resolve_user($u, trim((string) post('user', '')));
+    $rel = disk_valid_rel((string) post('rel', ''));
 
     $r = ctl_run(['du:stat', $user, $rel]);
     if ($r['exit'] !== 0) {
@@ -97,4 +105,18 @@ function ctrl_disk_browse(): void
         'total' => $total,
         'entries' => $entries,
     ]);
+}
+
+/** Crea un job que respalda una carpeta concreta del home. */
+function ctrl_disk_backup(): void
+{
+    $u = require_login();
+    csrf_check();
+    $user = disk_resolve_user($u, trim((string) post('user', '')));
+    $rel = disk_valid_rel((string) post('rel', ''));
+
+    $target = '/home/' . $user . ($rel !== '' ? '/' . $rel : '');
+    $jid = job_create('backup', 'carpeta ' . $target, (int) $u['id']);
+    job_spawn($jid, ['backup:folder', $user, $rel]);
+    respond(true, 'Backup de ' . $target . ' en curso. Se verá en la lista de backups cuando termine.', url('disk'));
 }

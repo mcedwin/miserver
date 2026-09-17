@@ -17,7 +17,7 @@ set -euo pipefail
 LOG_DIR=/var/log/miserver
 mkdir -p "$LOG_DIR"
 install -d -o miserver -g miserver -m 0770 "$LOG_DIR/jobs" 2>/dev/null || true
-log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG_DIR/ops.log"; }
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG_DIR/ops.log" 2>/dev/null || true; }
 die() { echo "error: $*" >&2; exit 2; }
 
 [ "$#" -ge 1 ] || die "uso: miserver-ctl <comando> [args]"
@@ -633,13 +633,13 @@ case "$cmd" in
   # --- Backups manuales (un solo respaldo: homes + bases de datos) -----------
   backup:run)
     save_dir="${BACKUP_DIR:-/var/backups/miserver}"
-    mkdir -p "$save_dir"
+    mkdir -p "$save_dir" 2>/dev/null || { echo "no se puede crear $save_dir"; exit 0; }
     ts="$(date +%Y%m%d-%H%M%S)"
     prefix="$save_dir/bk-${ts}"
     log "backup:run -> $prefix"
-    [ -d "$save_dir" ] || { echo "no existe $save_dir"; exit 0; }
+    rc_homes=0; rc_db=0
     # homes: archivos + carpetas de todos los usuarios (excepto el panel)
-    tar --acls --numeric-owner -czf "${prefix}-homes.tar.gz" -C /home --exclude=./miserver . 2>/dev/null || true
+    tar --acls --numeric-owner -czf "${prefix}-homes.tar.gz" -C /home --exclude=./miserver . >"$LOG_DIR/backup-homes.log" 2>&1 || rc_homes=$?
     # bases de datos de usuarios (excluye las internas de MySQL)
     dbs=""
     while IFS= read -r db; do
@@ -647,10 +647,39 @@ case "$cmd" in
       dbs="$dbs $db"
     done < <(mysql --batch --skip-column-names -e 'SHOW DATABASES' 2>/dev/null || true)
     if [ -n "$dbs" ]; then
-      mysqldump --single-transaction --routines --triggers $dbs 2>/dev/null | gzip -9 > "${prefix}-db.sql.gz"
+      mysqldump --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
     fi
     echo "bk-${ts}"
-    ls -1 "${prefix}"* | sed "s#^$save_dir/##"
+    [ $rc_homes -eq 0 ] || echo "aviso: los homes se respaldaron con errores rc=$rc_homes (log: $LOG_DIR/backup-homes.log)"
+    [ $rc_db -eq 0 ] || echo "aviso: la copia de bases de datos fallo rc=$rc_db (log: $LOG_DIR/backup-db.log)"
+    ls -1 "${prefix}"* 2>/dev/null | sed "s#^$save_dir/##" || true
+    [ -e "${prefix}-homes.tar.gz" ] || [ -e "${prefix}-db.sql.gz" ] || die "el backup no genero archivos"
+    exit 0
+    ;;
+
+  # --- Backup por carpeta (homes / cualquier subcarpeta) --------------------
+  backup:folder)
+    [ $# -eq 2 ] || die "backup:folder <usuario> <ruta-relativa>"
+    u="$1"; r="$2"; vuser "$u"
+    ensure_linux_user "$u"
+    if [ -n "$r" ]; then vrel "$r"; fi
+    fs_check "$u" "$r"
+    dir="$(fs_full "$u" "$r")"
+    [ -d "$dir" ] || die "directorio no existe: $r"
+    save_dir="${BACKUP_DIR:-/var/backups/miserver}"
+    mkdir -p "$save_dir" 2>/dev/null || { echo "no se puede crear $save_dir"; exit 0; }
+    base="$(basename "$dir")"
+    safe="$(printf '%s' "$base" | tr -c 'a-zA-Z0-9._-' '_')"
+    [ -n "$safe" ] || safe="home"
+    ts="$(date +%Y%m%d-%H%M%S)"
+    out="$save_dir/bk-${u}-${safe}-${ts}.tar.gz"
+    log "backup:folder $u '$r' -> $out"
+    if ! tar --acls --numeric-owner -czf "$out" -C "$(dirname "$dir")" "$(basename "$dir")" >"$LOG_DIR/backup-folder.log" 2>&1; then
+      echo "error: no se pudo crear el backup de la carpeta (log: $LOG_DIR/backup-folder.log)"
+      exit 2
+    fi
+    size="$(stat -c %s "$out" 2>/dev/null || echo 0)"
+    printf 'file|%s|%s|%s\n' "$size" "$(date '+%Y-%m-%d %H:%M')" "$(basename "$out")"
     ;;
 
   *)

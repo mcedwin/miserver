@@ -52,10 +52,10 @@
   <div class="table-wrap">
     <table class="table">
       <thead>
-        <tr><th>Nombre</th><th>Tipo</th><th>Tamaño</th><th>Modificado</th></tr>
+        <tr><th>Nombre</th><th>Tipo</th><th>Tamaño</th><th>Modificado</th><th></th></tr>
       </thead>
       <tbody id="du-body">
-        <tr><td colspan="4" class="muted">Cargando…</td></tr>
+        <tr><td colspan="5" class="muted">Cargando…</td></tr>
       </tbody>
     </table>
   </div>
@@ -88,7 +88,7 @@
     if (!entries.length) {
       var tr = document.createElement('tr');
       var td = document.createElement('td');
-      td.colSpan = 4;
+      td.colSpan = 5;
       td.className = 'muted';
       td.textContent = 'Carpeta vacía.';
       tr.appendChild(td);
@@ -122,17 +122,32 @@
       var tdM = document.createElement('td');
       tdM.className = 'muted';
       if (ent.t === 'F' && ent.m) tdM.textContent = new Date(ent.m * 1000).toLocaleString();
+      var tdA = document.createElement('td');
+      if (ent.t === 'D') {
+        var bk = document.createElement('button');
+        bk.type = 'button';
+        bk.className = 'btn btn-xs';
+        bk.textContent = 'backup';
+        var fpath = rel ? rel + '/' + ent.n : ent.n;
+        bk.setAttribute('data-post', <?= json_encode(url('disk/backup')) ?>);
+        bk.setAttribute('data-csrf', <?= json_encode(csrf_token()) ?>);
+        bk.setAttribute('data-extra-user', user);
+        bk.setAttribute('data-extra-rel', fpath);
+        bk.setAttribute('data-confirm', '¿Crear backup de ' + user + '/' + fpath + '?');
+        tdA.appendChild(bk);
+      }
       tr.appendChild(tdName);
       tr.appendChild(tdT);
       tr.appendChild(tdS);
       tr.appendChild(tdM);
+      tr.appendChild(tdA);
       table.appendChild(tr);
     });
   }
 
   function load() {
     if (!user) { statusEl.textContent = '…'; return; }
-    table.innerHTML = '<tr><td colspan="4" class="muted">Calculando tamaño…</td></tr>';
+    table.innerHTML = '<tr><td colspan="5" class="muted">Calculando tamaño…</td></tr>';
     var body = new URLSearchParams({ user: user, rel: rel });
     fetch(<?= json_encode(url('disk/browse')) ?>, {
       method: 'POST',

@@ -63,6 +63,7 @@ $ROUTES = [
 
     ['GET',  '/disk',               ['disk',    'index']],
     ['POST', '/disk/browse',        ['disk',    'browse']],
+    ['POST', '/disk/backup',        ['disk',    'backup']],
 
     ['GET',  '/jobs',               ['jobs',    'index']],
     ['POST', '/jobs/poll',          ['jobs',    'poll']],
