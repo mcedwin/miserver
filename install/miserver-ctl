@@ -234,6 +234,28 @@ vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_ve
 # MySQL por socket (el wrapper corre como root durante la instalación)
 msql() { mysql --protocol=socket "$@"; }
 
+# Copia .env.example -> .env cuando el proyecto recién clonado no tiene .env.
+# Para Laravel genera APP_KEY si está vacío/ausente, evitando despliegues rotos.
+deploy_ensure_env() { # $1=usuario $2=carpeta-proyecto [$3=phpbin]
+  local u="$1" target="$2" phpbin="${3:-/usr/bin/php}"
+  local envfile="$target/.env" src=""
+  [ -f "$envfile" ] && return 0
+  for cand in "$target/.env.example" "$target/.env.local" "$target/.env.dist"; do
+    [ -f "$cand" ] && { src="$cand"; break; }
+  done
+  [ -n "$src" ] || return 0
+  cp -a -- "$src" "$envfile"
+  sed -i 's/\r$//' "$envfile" 2>/dev/null || true
+  chown "$u:$u" "$envfile"
+  chmod 600 "$envfile" 2>/dev/null || true
+  log "env creado desde $(basename "$src") para $u:$target"
+  if [ -f "$target/artisan" ]; then
+    if grep -qE '^APP_KEY=[[:space:]]*$' "$envfile" 2>/dev/null || ! grep -qE '^APP_KEY=' "$envfile" 2>/dev/null; then
+      runuser -u "$u" -- env -C "$target" HOME="/home/$u" COMPOSER_HOME="/home/$u/.composer" "$phpbin" artisan key:generate --force --no-interaction >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
 # -----------------------------------------------------------------------------
 # Comandos
 # -----------------------------------------------------------------------------
@@ -843,6 +865,7 @@ case "$cmd" in
     fi
     echo "[deploy] usuario=$u php=$phpbin pasos=$steps"
     echo "[deploy] proyecto=/home/$u/$rel"
+    deploy_ensure_env "$u" "$target" "$phpbin"
     if [ "$steps" = all ] || [ "$steps" = composer ]; then
       if [ -f "$target/composer.json" ]; then
         carr=(); phar=0
