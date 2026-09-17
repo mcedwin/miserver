@@ -8,9 +8,11 @@ function ctrl_domains_index(): void
     $ctx = ctx_user($u);
     $isAdmin = ($u['role'] ?? '') === 'admin';
     if ($isAdmin) {
-        $rows = db_all('SELECT d.*, u.user AS uname, u.domain AS udomain FROM domain d JOIN user u ON u.id = d.user_id ORDER BY d.domain');
+        $rows = db_all('SELECT d.*, u.user AS uname, u.domain AS udomain, a.name AS app_name FROM domain d JOIN user u ON u.id = d.user_id LEFT JOIN app a ON a.id = d.app_id ORDER BY d.domain');
+        $apps = db_all('SELECT a.id, a.name, a.folder, u.user AS uname FROM app a JOIN user u ON u.id = a.user_id ORDER BY u.user, a.name');
     } else {
-        $rows = db_all('SELECT d.*, u.user AS uname FROM domain d JOIN user u ON u.id = d.user_id WHERE d.user_id = ? ORDER BY d.domain', [$u['id']]);
+        $rows = db_all('SELECT d.*, u.user AS uname, a.name AS app_name FROM domain d JOIN user u ON u.id = d.user_id LEFT JOIN app a ON a.id = d.app_id WHERE d.user_id = ? ORDER BY d.domain', [$u['id']]);
+        $apps = db_all('SELECT id, name, folder, NULL AS uname FROM app WHERE user_id = ? ORDER BY name', [$ctx['id']]);
     }
     foreach ($rows as $k => $row) {
         $rows[$k]['ssl_info'] = domain_ssl_info((string) $row['domain']);
@@ -21,6 +23,7 @@ function ctrl_domains_index(): void
         'rows' => $rows,
         'users' => $isAdmin ? users_for_select() : [],
         'ctx' => user_row($ctx['id']),
+        'apps' => $apps,
     ]);
 }
 
@@ -29,40 +32,62 @@ function ctrl_domains_store(): void
     $u = require_login();
     csrf_check();
     $domain = require_match(RE_DOMAIN, strtolower(post('domain')), 'Dominio no válido.');
+    $appId = post_int('app_id', 0);
 
-    $targetId = ($u['role'] ?? '') === 'admin' ? post_int('user_id', (int) $u['id']) : (int) $u['id'];
-    $owner = db_one('SELECT id, user FROM user WHERE id = ?', [$targetId]);
+    $owner = null;
+    if ($appId > 0) {
+        $app = db_one('SELECT * FROM app WHERE id = ?', [$appId]);
+        if (!$app) {
+            respond(false, 'Aplicación no válida.');
+        }
+        if (($u['role'] ?? '') !== 'admin' && (int) $app['user_id'] !== (int) $u['id']) {
+            respond(false, 'Aplicación no válida para este usuario.');
+        }
+        $owner = db_one('SELECT id, user FROM user WHERE id = ?', [$app['user_id']]);
+    } else {
+        $targetId = ($u['role'] ?? '') === 'admin' ? post_int('user_id', (int) $u['id']) : (int) $u['id'];
+        $owner = db_one('SELECT id, user FROM user WHERE id = ?', [$targetId]);
+    }
     if (!$owner) {
         respond(false, 'Usuario no válido.');
     }
 
-    $folder = trim(post('folder', '') ?? '');
-    $folder = $folder === '' ? $domain : $folder;
-    $folder = require_match(RE_FOLDER, $folder, 'Carpeta no válida.');
-    foreach (explode('/', $folder) as $seg) {
-        if ($seg === 'public_html') {
-            respond(false, 'No se permite public_html dentro de la ruta del proyecto; usa otra carpeta.');
+    $folder = '';
+    $documentRoot = '';
+    $phpVersion = '';
+    if ($appId > 0) {
+        $folder = $app['folder'];
+        $appDocroot = (string) $app['document_root'];
+        $documentRoot = $appDocroot !== '' ? $app['folder'] . '/' . $appDocroot : $app['folder'];
+        $phpVersion = $app['php_version'];
+    } else {
+        $folder = trim(post('folder', '') ?? '');
+        $folder = $folder === '' ? $domain : $folder;
+        $folder = require_match(RE_FOLDER, $folder, 'Carpeta no válida.');
+        foreach (explode('/', $folder) as $seg) {
+            if ($seg === 'public_html') {
+                respond(false, 'No se permite public_html dentro de la ruta del proyecto; usa otra carpeta.');
+            }
         }
-    }
-
-    $documentRoot = trim(post('document_root', '') ?? '');
-    if ($documentRoot === '') {
-        $documentRoot = $folder;
-    }
-    if (!relpath_ok($documentRoot)) {
-        respond(false, 'DocumentRoot no válido.');
-    }
-    $phpVersion = trim(post('php_version', '') ?? '');
-    if ($phpVersion !== '' && !preg_match(RE_PHPVER, $phpVersion)) {
-        respond(false, 'Versión de PHP no válida.');
+        $documentRoot = trim(post('document_root', '') ?? '');
+        if ($documentRoot === '') {
+            $documentRoot = $folder;
+        }
+        if (!relpath_ok($documentRoot)) {
+            respond(false, 'DocumentRoot no válido.');
+        }
+        $phpVersion = trim(post('php_version', '') ?? '');
+        if ($phpVersion !== '' && !preg_match(RE_PHPVER, $phpVersion)) {
+            respond(false, 'Versión de PHP no válida.');
+        }
     }
 
     if (db_one('SELECT id FROM domain WHERE domain = ?', [$domain])) {
         respond(false, 'Ese dominio ya está registrado.');
     }
 
-    db_run('INSERT INTO domain (user_id, domain, folder, document_root, php_version, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, 0, 1)', [
-        $owner['id'], $domain, $folder, $documentRoot, $phpVersion,
+    db_run('INSERT INTO domain (user_id, app_id, domain, folder, document_root, php_version, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, ?, 0, 1)', [
+        $owner['id'], $appId ?: null, $domain, $folder, $documentRoot, $phpVersion,
     ]);
     $id = (int) db_last_id();
 
@@ -81,7 +106,10 @@ function ctrl_domains_store(): void
         job_spawn($jid, ['cert:issue', $domain, db_config()['le_email'] ?? '']);
     }
 
-    respond(true, 'Dominio creado.', url('domains'));
+    $msg = $appId > 0
+        ? 'Dominio vinculado a la aplicación (DocumentRoot: /home/' . $owner['user'] . '/' . $documentRoot . ').'
+        : 'Dominio creado.';
+    respond(true, $msg, url('domains'));
 }
 
 function ctrl_domains_edit(array $p): void

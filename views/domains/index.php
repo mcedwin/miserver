@@ -4,9 +4,30 @@
   <h3>Dominios</h3>
 </div>
 
+<?php /* ---- Dominio desde aplicación existente ---- */ ?>
+<?php if (!empty($apps)): ?>
 <form class="card mb-1" method="post" action="<?= url('domains') ?>" data-ajax="1">
   <?= csrf_field() ?>
-  <h4>Añadir dominio</h4>
+  <h4>Crear dominio desde una aplicación</h4>
+  <div class="row-form">
+    <select class="form-control" name="app_id" required style="flex:2">
+      <option value="">— Selecciona una aplicación —</option>
+      <?php foreach ($apps as $a): ?>
+        <option value="<?= (int)$a['id'] ?>"><?= $a['uname'] ? e($a['uname']) . ' / ' : '' ?><?= e($a['name']) ?> (<?= e($a['folder']) ?>)</option>
+      <?php endforeach; ?>
+    </select>
+    <input class="form-control" name="domain" placeholder="dominio o subdominio" required>
+    <label class="check-line"><input type="checkbox" name="ssl" value="1" checked> &nbsp;SSL</label>
+    <button class="btn btn-primary" type="submit">Crear dominio</button>
+  </div>
+  <p class="muted">Usa una <a href="<?= url('apps') ?>">aplicación</a> ya clonada. Para cambiar la carpeta o DocumentRoot después, editá el dominio (pasará a configuración manual).</p>
+</form>
+<?php endif; ?>
+
+<?php /* ---- Dominio manual (sin repo) ---- */ ?>
+<form class="card mb-1" method="post" action="<?= url('domains') ?>" data-ajax="1">
+  <?= csrf_field() ?>
+  <h4>Añadir dominio manual</h4>
   <div class="row-form">
     <?php if ($isAdmin): ?>
       <select class="form-control" name="user_id">
@@ -22,7 +43,7 @@
     <label class="check-line"><input type="checkbox" name="ssl" value="1" checked> &nbsp;SSL</label>
     <button class="btn btn-primary" type="submit">Crear</button>
   </div>
-  <p class="muted">Apunta a una carpeta dentro de <code>/home/&lt;usuario&gt;</code>. Para proyectos clonados desde GitHub, usá la sección <a href="<?= url('apps') ?>">Aplicaciones</a>.</p>
+  <p class="muted">Apunta a una carpeta dentro de <code>/home/&lt;usuario&gt;</code>.</p>
 </form>
 
 <div class="table-wrap">
@@ -35,7 +56,12 @@
       <tr>
         <td><a href="http://<?= e($d['domain']) ?>" target="_blank"><?= e($d['domain']) ?></a></td>
         <td><?= e($d['uname'] ?? '') ?></td>
-        <td class="mono"><?= e($d['folder']) ?></td>
+        <td class="mono">
+          <?php if (!empty($d['app_id'])): ?>
+            <span class="badge badge-sm badge-ok">app</span> <?= e($d['app_name'] ?? '') ?>
+          <?php endif; ?>
+          <?= e($d['folder']) ?>
+        </td>
         <td class="mono"><?= e((string)($d['document_root'] ?: $d['folder'])) ?></td>
         <td><?= e($d['php_version'] ?: 'sistema') ?></td>
         <td>

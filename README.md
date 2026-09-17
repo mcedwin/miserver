@@ -166,14 +166,18 @@ URL ni en la BD en claro):
 4. El editor de `.env` precarga `.env.example` cuando el archivo no existe; también
    hay un botón **Crear .env desde .env.example**.
 
-Los **Dominios** son independientes: solo indican la carpeta y el `DocumentRoot`
-que Apache debe servir. Para apuntar un dominio a una aplicación, copiá su
-DocumentRoot en **Dominios → Añadir dominio**.
+Los **Dominios** pueden crearse de dos formas:
+1. **Desde una aplicación existente**: seleccionás la app y el dominio/subdominio;
+   se copian su carpeta, DocumentRoot y PHP.
+2. **Manual**: indicás la carpeta y el `DocumentRoot` que Apache debe servir.
+
+Al editar un dominio siempre se trabaja de forma manual (carpeta + DocumentRoot +
+PHP); si estaba vinculado a una app, se desvincula.
 
 Rutas web del módulo: `/apps`, `/apps/create`, `/apps/{id}/edit|update|deploy|pull|migrate|reinstall|delete`,
 `/apps/{id}/env` (editor del `.env`) y `/apps/{id}/env-from-example`.
 
-El esquema de `domain` incluye `folder`, `document_root` y `php_version`;
+El esquema de `domain` incluye `app_id`, `folder`, `document_root` y `php_version`;
 las columnas legacy (`project_type`, `git_url`, etc.) se mantienen solo por
 compatibilidad con datos antiguos.
 
