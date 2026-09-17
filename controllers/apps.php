@@ -226,9 +226,9 @@ function ctrl_apps_env(array $p): void
     $source = '';
     $r = ctl_run_exec(['fs:cat', $owner['user'], $rel, '2097152']);
     $directPath = '/home/' . $owner['user'] . '/' . $rel;
-    if ($r['exit'] !== 0 && is_readable($directPath)) {
+    if (($r['exit'] !== 0 || ($r['out'] ?? '') === '') && is_readable($directPath)) {
         $direct = @file_get_contents($directPath);
-        if ($direct !== false) {
+        if ($direct !== false && $direct !== '') {
             $r = ['exit' => 0, 'out' => $direct];
         }
     }
