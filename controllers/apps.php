@@ -225,9 +225,18 @@ function ctrl_apps_env(array $p): void
     $existed = false;
     $source = '';
     $r = ctl_run_exec(['fs:cat', $owner['user'], $rel, '2097152']);
+    $directPath = '/home/' . $owner['user'] . '/' . $rel;
+    if ($r['exit'] !== 0 && is_readable($directPath)) {
+        $direct = @file_get_contents($directPath);
+        if ($direct !== false) {
+            $r = ['exit' => 0, 'out' => $direct];
+        }
+    }
     $logDir = '/home/miserver/panel/tmp';
     @mkdir($logDir, 0770, true);
-    @file_put_contents($logDir . '/miserver_env_debug.log', json_encode(['time' => date('c'), 'exit' => $r['exit'], 'out_len' => strlen($r['out'] ?? ''), 'out' => $r['out'] ?? '']) . "\n", FILE_APPEND | LOCK_EX);
+    $logData = json_encode(['time' => date('c'), 'exit' => $r['exit'], 'out_len' => strlen($r['out'] ?? ''), 'out' => $r['out'] ?? '']);
+    $written = file_put_contents($logDir . '/miserver_env_debug.log', $logData . "\n", FILE_APPEND | LOCK_EX);
+    error_log('MISERVER_ENV_DEBUG app_id=' . (int) $p[0] . ' written=' . ($written === false ? 'false' : (string) $written) . ' data=' . $logData);
     if ($r['exit'] === 0) {
         $content = $r['out'];
         $existed = true;
