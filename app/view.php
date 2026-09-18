@@ -12,14 +12,15 @@ function render(string $view, array $data = []): void
     $u = current_user();
     $active = $data['active'] ?? '';
     $title = $data['title'] ?? 'Mi Server';
-    $content = $data['_content'] ?? null;
+    $rendered = $data['_content'] ?? null;
 
-    if ($content === null) {
+    if ($rendered === null) {
         ob_start();
         require APP_ROOT . '/views/' . $view . '.php';
-        $content = ob_get_clean();
+        $rendered = ob_get_clean();
     }
 
+    $content = $rendered;
     require APP_ROOT . '/views/layout.php';
 }
 

@@ -249,7 +249,7 @@ function ctrl_apps_env(array $p): void
             }
         }
     }
-  echo $content;
+
     render('apps/env', [
         'title' => '.env de ' . $row['name'],
         'active' => 'apps',
