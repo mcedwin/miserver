@@ -101,6 +101,7 @@ function ctl_run_read(array $args): array
     }
     $cmd = array_merge(['sudo', '-n', ctl_path()], $args);
     $proc = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    die("hola");
     if (!is_resource($proc)) {
         return ['exit' => 127, 'out' => '555', 'err' => 'no se pudo ejecutar el wrapper'];
     }
