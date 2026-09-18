@@ -214,6 +214,7 @@ function ctrl_apps_reinstall(array $p): void
 
 function ctrl_apps_env(array $p): void
 {
+  die("hola");
     $u = require_login();
     $row = app_row_or_fail($p[0], $u);
     $owner = app_owner($row);
