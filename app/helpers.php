@@ -111,7 +111,7 @@ const RE_GITURL    = '/^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(\.[a-z]{2,})+(\
 const RE_GITBRANCH = '/^[a-z0-9][a-z0-9._\/-]{0,99}$/i';
 const RE_PHPVER    = '/^[0-9]+\.[0-9]+$/';
 // Token para repos privados (GitHub PAT / HTTP): juego seguro y acotado.
-const RE_GITTOKEN  = '/^[A-Za-z0-9._:-]{8,150}$/';
+const RE_GITTOKEN  = '/^[A-Za-z0-9._:-]{8,500}$/';
 
 /**
  * Valida una ruta relativa (proyecto dentro del repo o DocumentRoot respecto al home):

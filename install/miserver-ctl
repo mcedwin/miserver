@@ -86,7 +86,7 @@ vbranch() { [ $# -ge 1 ] || die "rama invalida"; [[ "$1" =~ $re_branch ]] || die
 vver()    { [ $# -ge 1 ] || die "version PHP invalida"; [ -z "$1" ] && return 0; [[ "$1" =~ $re_ver ]] || die "version PHP invalida"; }
 # Token para repos privados (GitHub PAT / tokens HTTP): juego seguro, sin
 # espacios ni caracteres que rompan el credential-helper temporal.
-re_token='^[A-Za-z0-9._:-]{8,150}$'
+re_token='^[A-Za-z0-9._:-]{8,500}$'
 vtok()    { [ $# -ge 1 ] || die "token invalido"; [ -z "$1" ] && return 0; [[ "$1" =~ $re_token ]] || die "token invalido"; }
 
 fs_full() { echo "/home/$1/$2"; }
@@ -963,23 +963,23 @@ case "$cmd" in
       [ "$had_target" = 0 ] && [ -e "$target" ] && rm -rf -- "$target"
     }
     if [ -n "$tok" ]; then
-      # Credential-helper temporal (permisos 600) con el token; se borra al salir.
+      # Credential-helper temporal (ejecutable, permisos 700) con el token; se borra al salir.
       helper="$(mktemp)"
-      chmod 600 "$helper"
       printf '#!/bin/sh\necho username=x-access-token\necho password=%s\n' "$tok" > "$helper"
+      chmod 700 "$helper"
     fi
     extra=(-c credential.helper=)
     if [ -n "$helper" ]; then
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 900 git -c safe.directory="$target" "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target" || { cleanup_clone; exit 2; }
+      timeout 900 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -c safe.directory="$target" "${extra[@]}" clone --depth 1 --branch "$br" --single-branch -- "$url" "$target" || { cleanup_clone; log "git:clone fallo $u $f"; exit 2; }
     else
-      timeout 900 git -c safe.directory="$target" "${extra[@]}" clone --depth 1 -- "$url" "$target" || { cleanup_clone; exit 2; }
+      timeout 900 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -c safe.directory="$target" "${extra[@]}" clone --depth 1 -- "$url" "$target" || { cleanup_clone; log "git:clone fallo $u $f"; exit 2; }
     fi
     # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
     chown -R "$u:$u" "$target" 2>/dev/null || true
-    git -C "$target" -c safe.directory="$target" remote set-url origin "$url" 2>/dev/null || true
+    env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" remote set-url origin "$url" 2>/dev/null || true
     echo ok
     ;;
 
@@ -998,17 +998,17 @@ case "$cmd" in
     trap 'rm -f "$helper"' EXIT
     if [ -n "$tok" ]; then
       helper="$(mktemp)"
-      chmod 600 "$helper"
       printf '#!/bin/sh\necho username=x-access-token\necho password=%s\n' "$tok" > "$helper"
+      chmod 700 "$helper"
     fi
     extra=(-c credential.helper=)
     if [ -n "$helper" ]; then
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || die "git pull fallo"
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
     else
-      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || die "git pull fallo"
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     echo ok
@@ -1029,17 +1029,17 @@ case "$cmd" in
     trap 'rm -f "$helper"' EXIT
     if [ -n "$tok" ]; then
       helper="$(mktemp)"
-      chmod 600 "$helper"
       printf '#!/bin/sh\necho username=x-access-token\necho password=%s\n' "$tok" > "$helper"
+      chmod 700 "$helper"
     fi
     extra=(-c credential.helper=)
     if [ -n "$helper" ]; then
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || die "git pull fallo"
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
     else
-      timeout 300 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || die "git pull fallo"
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     do_app_deploy "$u" "$f" "$pv" "all"
