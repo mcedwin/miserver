@@ -145,7 +145,11 @@ function ctrl_users_destroy(array $p): void
     foreach (db_all('SELECT * FROM domain WHERE user_id = ?', [$id]) as $d) {
         do_delete_domain($d['domain']);
     }
-    ctl_run(['user:del', $prefix]);
+    $r = ctl_run(['user:del', $prefix]);
+    if ($r['exit'] !== 0) {
+        respond(false, 'Error del sistema: ' . e($r['out']));
+    }
+    db_run('DELETE FROM user WHERE id = ?', [$id]);
     respond(true, 'Usuario eliminado.', url('users'));
 }
 
