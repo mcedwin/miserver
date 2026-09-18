@@ -12,7 +12,7 @@
   <?php endif; ?>
   <form method="post" action="<?= url('apps/'.$row['id'].'/env') ?>" class="card" style="box-shadow:none;border:0;padding:0">
     <?= csrf_field() ?>
-    <textarea class="form-control mono" name="content" rows="24" spellcheck="false" style="width:100%;font-family:Consolas,monospace"><?php echo ($content) ?></textarea>
+    <textarea class="form-control mono" name="content" rows="24" spellcheck="false" style="width:100%;font-family:Consolas,monospace"><?php echo ($content)."ffff" ?></textarea>
     <div class="row-form mt-1">
       <button class="btn btn-primary" type="submit"><svg class="ic"><use href="#i-check"/></svg> Guardar .env</button>
       <button class="btn btn-info" data-post="<?= url('apps/'.$row['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Ejecutar Composer + caches ahora?">Desplegar</button>
