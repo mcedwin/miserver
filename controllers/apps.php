@@ -78,7 +78,7 @@ function ctrl_apps_store(): void
     $jid = job_create('deploy', $name, (int) $owner['id']);
     job_spawn($jid, ['app:deploy', $owner['user'], $folder, $phpVersion, 'all']);
 
-    respond(true, 'Aplicación creada (tipo: ' . $type . '). DocumentRoot: ' . ($documentRoot ?: '(raíz)') . '. Despliegue en segundo plano.', url('apps'));
+    respond(true, 'Aplicación creada (tipo: ' . $type . '). DocumentRoot: ' . ($documentRoot ?: '(raíz)') . '. Despliegue (composer + npm + caches) en segundo plano.', url('apps'));
 }
 
 function ctrl_apps_edit(array $p): void
@@ -138,7 +138,7 @@ function ctrl_apps_deploy(array $p): void
     }
     $jid = job_create('deploy', $row['name'], (int) $owner['id']);
     job_spawn($jid, ['app:deploy', $owner['user'], $row['folder'], (string) $row['php_version'], 'all']);
-    respond(true, 'Despliegue iniciado.', url('jobs'));
+    respond(true, 'Despliegue iniciado (composer + npm + caches).', url('jobs'));
 }
 
 function ctrl_apps_migrate(array $p): void
@@ -172,7 +172,7 @@ function ctrl_apps_pull(array $p): void
     $jid = job_create('pull', $row['name'], (int) $owner['id']);
     job_spawn($jid, ['app:pull', $owner['user'], $row['folder'], (string) ($row['git_branch'] ?: 'main'), $gitToken, (string) $row['php_version']]);
 
-    respond(true, 'Pull + despliegue iniciados en secuencia.', url('jobs'));
+    respond(true, 'Pull + despliegue (composer + npm + caches) iniciados en secuencia.', url('jobs'));
 }
 
 function ctrl_apps_reinstall(array $p): void
@@ -209,7 +209,7 @@ function ctrl_apps_reinstall(array $p): void
     $jid = job_create('deploy', $row['name'], (int) $owner['id']);
     job_spawn($jid, ['app:deploy', $owner['user'], $folder, (string) $row['php_version'], 'all']);
 
-    respond(true, 'Reinstalación iniciada. Se conservó el .env anterior.', url('apps'));
+    respond(true, 'Reinstalación iniciada (composer + npm + caches). Se conservó el .env anterior.', url('apps'));
 }
 
 function ctrl_apps_env(array $p): void

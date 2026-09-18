@@ -63,6 +63,19 @@ fi
 certbot --version && certbot plugins | grep -i apache && echo "   -> certbot OK con plugin apache" \
   || echo "   ATENCION: verifica certbot --version y certbot plugins en la consola"
 
+# Node.js + npm (necesarios para desplegar proyectos Vue/Node).
+log "   Instalando Node.js LTS y npm..."
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+  # NodeSource setup_20.x funciona en Ubuntu 20.04/22.04/24.04.
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - || true
+  apt-get install -y --no-install-recommends nodejs || true
+fi
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  echo "   -> Node $(node -v) / npm $(npm -v) instalados"
+else
+  echo "   ATENCION: no se pudo instalar Node.js/npm. Los despliegues Vue/Node fallaran." >&2
+fi
+
 # MPM prefork (necesario por mod_php) + mod_ruid2 (usuario por vhost) + rewrite + ssl
 a2dismod -f mpm_worker mpm_event >/dev/null 2>&1 || true
 a2enmod -f mpm_prefork >/dev/null 2>&1 || true

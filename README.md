@@ -157,11 +157,13 @@ URL ni en la BD en claro):
    - **Laravel** (`artisan` + `public/index.php`) → DocumentRoot `…/public`
    - **CodeIgniter 4** (`public/index.php` sin `index.php` en raíz) → `…/public`;
      **CodeIgniter 3** (`index.php` en raíz) → raíz
-   - **WordPress** (`wp-config.php`) → DocumentRoot raíz (`…/carpeta`)
-   - **PHP** (`index.php/html` o `public/index.php`) y **Node** → según caso
-   - **Otro** → raíz, sin despliegue automático
+    - **WordPress** (`wp-config.php`) → DocumentRoot raíz (`…/carpeta`)
+    - **PHP** (`index.php/html` o `public/index.php`) → según caso
+    - **Node/Vue** (`package.json`; Vue se detecta por `vue.config.*`,
+      `vite.config.*` o dependencias `@vue/cli-service`/`vue`) → raíz
+    - **Otro** → raíz, sin despliegue automático
 3. Tras crear, se despliega automáticamente (`app:deploy … all` = **Composer +
-   caches**, sin migraciones) y quedan botones para **Desplegar**, **Pull**,
+   npm + caches**, sin migraciones) y quedan botones para **Desplegar**, **Pull**,
    **Migrar BD**, **Reinstalar** y **.env**.
 4. El editor de `.env` precarga `.env.example` cuando el archivo no existe; también
    hay un botón **Crear .env desde .env.example**.
@@ -177,7 +179,7 @@ PHP); si estaba vinculado a una app, se desvincula.
 Rutas web del módulo: `/apps`, `/apps/create`, `/apps/{id}/edit|update|deploy|pull|migrate|reinstall|delete`,
 `/apps/{id}/env` (editor del `.env`) y `/apps/{id}/env-from-example`.
 El botón **Pull** ejecuta el comando `app:pull` del wrapper, que hace `git pull` y,
-si tiene éxito, corre el despliegue (Composer + caches) en la misma tarea.
+si tiene éxito, corre el despliegue (Composer + npm + caches) en la misma tarea.
 
 El esquema de `domain` incluye `app_id`, `folder`, `document_root` y `php_version`;
 las columnas legacy (`project_type`, `git_url`, etc.) se mantienen solo por

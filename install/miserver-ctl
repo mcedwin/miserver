@@ -258,9 +258,9 @@ deploy_ensure_env() { # $1=usuario $2=carpeta-proyecto [$3=phpbin]
 
 # Cuerpo de app:deploy; se reusa en app:pull.
 do_app_deploy() {
-  local u="$1" rel="$2" pv="${3:-}" steps="${4:-all}"
+  local u="$1" rel="$2" pv="${3:-}" steps="${4:-all}" npm_script
   vuser "$u"; vrel "$rel"; vver "$pv"
-  case "$steps" in all|composer|cache|migrate) ;; *) die "pasos invalidos: $steps" ;; esac
+  case "$steps" in all|composer|npm|cache|migrate) ;; *) die "pasos invalidos: $steps" ;; esac
   ensure_linux_user "$u"
   fs_check "$u" "$rel"
   local target="/home/$u/$rel"
@@ -294,6 +294,46 @@ do_app_deploy() {
       fi
     else
       echo "[deploy] sin composer.json, se omite composer"
+    fi
+  fi
+  if [ "$steps" = all ] || [ "$steps" = npm ]; then
+    if [ -f "$target/package.json" ]; then
+      if ! command -v npm >/dev/null 2>&1; then
+        echo "error: npm no esta instalado en el servidor (instala nodejs)" >&2
+        exit 1
+      fi
+      echo "[deploy] npm install ..."
+      # npm ci es mas rapido/reproducible cuando hay package-lock.json.
+      if [ -f "$target/package-lock.json" ]; then
+        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm ci 2>&1; then
+          echo "[deploy] npm ci fallo, reintentando con npm install ..."
+          if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm install 2>&1; then
+            echo "error: 'npm install' fallo" >&2
+            exit 1
+          fi
+        fi
+      else
+        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm install 2>&1; then
+          echo "error: 'npm install' fallo" >&2
+          exit 1
+        fi
+      fi
+      # Elige el script de build mas comun: build > prod > production.
+      npm_script="build"
+      if grep -qE '"build"\s*:' "$target/package.json" 2>/dev/null; then
+        npm_script="build"
+      elif grep -qE '"prod"\s*:' "$target/package.json" 2>/dev/null; then
+        npm_script="prod"
+      elif grep -qE '"production"\s*:' "$target/package.json" 2>/dev/null; then
+        npm_script="production"
+      fi
+      echo "[deploy] npm run $npm_script ..."
+      if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm run "$npm_script" 2>&1; then
+        echo "error: 'npm run $npm_script' fallo" >&2
+        exit 1
+      fi
+    else
+      echo "[deploy] sin package.json, se omite npm"
     fi
   fi
   if [ "$steps" = all ] || [ "$steps" = cache ]; then
@@ -1066,17 +1106,24 @@ case "$cmd" in
       type=php; webroot='.'
     elif [ -f "$dir/package.json" ]; then
       type=node; webroot='.'
+      # Vue: depende de @vue/cli, vite o del paquete vue en package.json.
+      if [ -f "$dir/vue.config.js" ] || [ -f "$dir/vue.config.ts" ] || \
+         [ -f "$dir/vite.config.js" ] || [ -f "$dir/vite.config.ts" ] || \
+         grep -qE '"(@vue/cli-service|vue)"\s*:' "$dir/package.json" 2>/dev/null; then
+        type=vue
+      fi
     fi
     echo "type|$type"
     echo "webroot|$webroot"
     ;;
 
-  # Despliegue post-clon (Laravel, CodeIgniter y apps con composer). Todo como el
-  # DUEÑO del proyecto (los archivos del vhost se sirven con mod_ruid2 como ese
-  # usuario). La migración es SIEMPRE un paso aparte (migrate): el despliegue
-  # normal (all = composer + cache) NO migra por defecto.
+  # Despliegue post-clon (Laravel, CodeIgniter, Vue/Node y apps con composer).
+  # Todo como el DUEÑO del proyecto (los archivos del vhost se sirven con
+  # mod_ruid2 como ese usuario). La migración es SIEMPRE un paso aparte
+  # (migrate): el despliegue normal (all = composer + npm + cache) NO migra
+  # por defecto.
   #   app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]
-  #   pasos: all (composer+cache) | composer | cache | migrate
+  #   pasos: all (composer+npm+cache) | composer | npm | cache | migrate
   app:deploy)
     [ $# -ge 2 ] || die "app:deploy <usuario> <carpeta-proyecto> [php-version] [pasos]"
     do_app_deploy "$@"

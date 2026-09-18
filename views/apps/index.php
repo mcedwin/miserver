@@ -33,7 +33,7 @@
         <td class="mono"><?= e($a['document_root'] ?: '(raíz)') ?></td>
         <td><?= e($a['php_version'] ?: 'sistema') ?></td>
         <td class="actions" style="justify-content:flex-end">
-          <button class="btn btn-xs btn-info" data-post="<?= url('apps/'.$a['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" title="Composer + caches">Desplegar</button>
+          <button class="btn btn-xs btn-info" data-post="<?= url('apps/'.$a['id'].'/deploy') ?>" data-csrf="<?= csrf_token() ?>" title="Composer + npm + caches">Desplegar</button>
           <button class="btn btn-xs btn-info" data-post="<?= url('apps/'.$a['id'].'/pull') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Hacer git pull de <?= e($a['name']) ?> y desplegar?" title="git pull + despliegue">Pull</button>
           <button class="btn btn-xs" data-post="<?= url('apps/'.$a['id'].'/migrate') ?>" data-csrf="<?= csrf_token() ?>">Migrar</button>
           <a class="btn btn-xs" href="<?= url('apps/'.$a['id'].'/env') ?>">.env</a>
