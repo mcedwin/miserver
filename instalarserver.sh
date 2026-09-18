@@ -151,6 +151,15 @@ fi
 
 # openssl rand (no usar pipe: tr|head recibe SIGPIPE y con pipefail aborta en silencio).
 PANEL_DB_PASS="$(openssl rand -hex 12)"
+# Si ya existe un .env previo, reutiliza su DB_PASS para no perder la conexion
+# del panel con MySQL al reejecutar el instalador.
+if [ -f /home/miserver/panel/.env ]; then
+  existing_pass="$(grep '^DB_PASS=' /home/miserver/panel/.env | cut -d= -f2- | head -n1)"
+  if [ -n "$existing_pass" ]; then
+    PANEL_DB_PASS="$existing_pass"
+    echo "   -> reutilizando DB_PASS del .env existente"
+  fi
+fi
 # MySQL 8.0 (Ubuntu 24.04) rechaza GRANT sobre information_schema: no se otorga.
 mysql <<SQL
 CREATE DATABASE IF NOT EXISTS miserver CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -197,7 +206,10 @@ chmod 600 /home/miserver/panel/.env 2>/dev/null || true
 # ---------------------------------------------------------------------------
 log "5/9 Creando .env del panel."
 # ---------------------------------------------------------------------------
-tee /home/miserver/panel/.env > /dev/null <<EOF
+if [ -f /home/miserver/panel/.env ]; then
+  echo "   -> .env existente conservado (no se sobrescribe)"
+else
+  tee /home/miserver/panel/.env > /dev/null <<EOF
 APP_BASEURL=/
 APP_SECRET=$(openssl rand -hex 24)
 APP_TIMEZONE=America/Lima
@@ -212,11 +224,17 @@ CTL_PATH=/usr/local/sbin/miserver-ctl
 BACKUP_DIR=/var/backups/miserver
 SESSION_PATH=/home/miserver/panel/var/sessions
 EOF
-chown miserver:miserver /home/miserver/panel/.env
-chmod 600 /home/miserver/panel/.env
+  chown miserver:miserver /home/miserver/panel/.env
+  chmod 600 /home/miserver/panel/.env
+fi
 
-log "   Importando esquema de la base..."
-mysql -u miserver -p"${PANEL_DB_PASS}" miserver < /home/miserver/panel/res/miserver.sql
+log "   Verificando esquema de la base..."
+if mysql -u miserver -p"${PANEL_DB_PASS}" miserver -e "SELECT COUNT(*) FROM user" >/dev/null 2>&1; then
+  echo "   -> la base ya contiene datos; se omite la importacion del esquema"
+else
+  echo "   -> importando esquema nuevo..."
+  mysql -u miserver -p"${PANEL_DB_PASS}" miserver < /home/miserver/panel/res/miserver.sql
+fi
 
 # ---------------------------------------------------------------------------
 log "6/9 Instalando wrapper privilegiado + sudoers."
