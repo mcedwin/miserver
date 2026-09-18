@@ -240,7 +240,6 @@ function ctrl_apps_env(array $p): void
     }
 
     if (!$existed) {
-      die("existe");
         $exampleRel = app_env_example_path($row, $owner);
         if ($exampleRel !== null) {
             $re = ctl_run_read(['fs:cat', $owner['user'], $exampleRel, '2097152']);
@@ -250,6 +249,7 @@ function ctrl_apps_env(array $p): void
             }
         }
     }
+    die($content);
     render('apps/env', [
         'title' => '.env de ' . $row['name'],
         'active' => 'apps',
