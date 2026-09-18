@@ -980,6 +980,8 @@ case "$cmd" in
     # ownership para el usuario (ruid2 servirá como el dueño) y origen sin credenciales
     chown -R "$u:$u" "$target" 2>/dev/null || true
     env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" remote set-url origin "$url" 2>/dev/null || true
+    # Configura pull.rebase para evitar "Need to specify how to reconcile" en Git >= 2.27
+    env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" config pull.rebase true 2>/dev/null || true
     echo ok
     ;;
 
@@ -1006,9 +1008,9 @@ case "$cmd" in
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 origin "$br" 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
     else
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     echo ok
@@ -1037,9 +1039,9 @@ case "$cmd" in
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
     if [ -n "$br" ]; then
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 origin "$br" 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 origin "$br" 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
     else
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --depth 1 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
+      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     do_app_deploy "$u" "$f" "$pv" "all"
