@@ -258,8 +258,10 @@ deploy_ensure_env() { # $1=usuario $2=carpeta-proyecto [$3=phpbin]
 
 # Cuerpo de app:deploy; se reusa en app:pull.
 do_app_deploy() {
-  local u="$1" rel="$2" pv="${3:-}" steps="${4:-all}" npm_script
+  local u="$1" rel="$2" pv="${3:-}" steps="${4:-all}" npm_script npm_flags
   vuser "$u"; vrel "$rel"; vver "$pv"
+  # Flags para reducir uso de RAM/CPU en VPS pequenas y evitar "Killed".
+  npm_flags="--no-audit --no-fund --maxsockets=1"
   case "$steps" in all|composer|npm|cache|migrate) ;; *) die "pasos invalidos: $steps" ;; esac
   ensure_linux_user "$u"
   fs_check "$u" "$rel"
@@ -302,18 +304,18 @@ do_app_deploy() {
         echo "error: npm no esta instalado en el servidor (instala nodejs)" >&2
         exit 1
       fi
-      echo "[deploy] npm install ..."
+      echo "[deploy] npm install ($npm_flags) ..."
       # npm ci es mas rapido/reproducible cuando hay package-lock.json.
       if [ -f "$target/package-lock.json" ]; then
-        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm ci 2>&1; then
+        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" NODE_OPTIONS="--max-old-space-size=1024" npm ci $npm_flags 2>&1; then
           echo "[deploy] npm ci fallo, reintentando con npm install ..."
-          if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm install 2>&1; then
+          if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" NODE_OPTIONS="--max-old-space-size=1024" npm install $npm_flags 2>&1; then
             echo "error: 'npm install' fallo" >&2
             exit 1
           fi
         fi
       else
-        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm install 2>&1; then
+        if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" NODE_OPTIONS="--max-old-space-size=1024" npm install $npm_flags 2>&1; then
           echo "error: 'npm install' fallo" >&2
           exit 1
         fi
@@ -328,7 +330,7 @@ do_app_deploy() {
         npm_script="production"
       fi
       echo "[deploy] npm run $npm_script ..."
-      if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" npm run "$npm_script" 2>&1; then
+      if ! timeout 900 runuser -u "$u" -- env -C "$target" HOME="/home/$u" NODE_OPTIONS="--max-old-space-size=1024" npm run "$npm_script" 2>&1; then
         echo "error: 'npm run $npm_script' fallo" >&2
         exit 1
       fi
