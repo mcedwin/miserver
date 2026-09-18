@@ -214,7 +214,7 @@ function ctrl_apps_reinstall(array $p): void
 
 function ctrl_apps_env(array $p): void
 {
-  die("hola");
+ 
     $u = require_login();
     $row = app_row_or_fail($p[0], $u);
     $owner = app_owner($row);
@@ -231,6 +231,7 @@ function ctrl_apps_env(array $p): void
 
     if (!$existed && @is_file($directPath)) {
         $r = ctl_run_read(['fs:cat', $owner['user'], $rel, '2097152']);
+        die(print_r($r));
         if ($r['exit'] === 0 && $r['out'] !== '') {
             $content = $r['out'];
             $existed = true;
