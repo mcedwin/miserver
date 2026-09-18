@@ -280,6 +280,45 @@ function parse_pipe_lines(string $raw): array
     return $rows;
 }
 
+/** Parsea lineas "part|fs|blocks|used|avail|use%|mount" en arrays estructurados. */
+function parse_disk_partitions(string $raw): array
+{
+    $rows = [];
+    foreach (preg_split('/\r?\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '' || strncmp($line, 'part|', 5) !== 0) {
+            continue;
+        }
+        $p = explode('|', $line);
+        if (count($p) < 7) {
+            continue;
+        }
+        $usePercent = (int) str_replace('%', '', $p[5]);
+        $rows[] = [
+            'filesystem' => $p[1],
+            'size_kb' => (int) $p[2],
+            'used_kb' => (int) $p[3],
+            'avail_kb' => (int) $p[4],
+            'use_percent' => $usePercent,
+            'mount' => $p[6],
+        ];
+    }
+    return $rows;
+}
+
+/** Formata KB a una unidad legible (GB/TB/MB). */
+function format_size_kb(int $kb): string
+{
+    $bytes = $kb * 1024;
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $i = 0;
+    while ($bytes >= 1024 && $i < count($units) - 1) {
+        $bytes /= 1024;
+        $i++;
+    }
+    return round($bytes, 2) . ' ' . $units[$i];
+}
+
 /** Genera una contraseña aleatoria segura para usuarios de BD. */
 function random_password(int $len = 16): string
 {

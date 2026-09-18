@@ -220,15 +220,19 @@ function sys_info(): array
     $out['raw'] = ['ok' => $r['exit'] === 0, 'raw' => $r['out']];
     $lines = preg_split('/\r?\n/', $r['out']);
     $disk = [];
+    $parts = [];
     $homes = [];
     foreach ((array) $lines as $line) {
         if (strncmp($line, 'home|', 5) === 0) {
             $homes[] = $line;
+        } elseif (strncmp($line, 'part|', 5) === 0) {
+            $parts[] = $line;
         } elseif ($line !== '') {
             $disk[] = $line;
         }
     }
     $out['disk'] = ['ok' => $r['exit'] === 0, 'raw' => implode("\n", $disk)];
+    $out['partitions'] = ['ok' => $r['exit'] === 0, 'raw' => implode("\n", $parts)];
     $out['homes'] = ['ok' => $r['exit'] === 0, 'raw' => implode("\n", $homes)];
     $rb = ctl_run(['backup:list']);
     $out['backups'] = ['ok' => $rb['exit'] === 0, 'raw' => $rb['out']];

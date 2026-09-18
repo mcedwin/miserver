@@ -21,6 +21,34 @@ $u = current_user();
   </div>
 </div>
 
+<?php if (!empty($partitions)): ?>
+<section class="mb-2">
+  <h3>Disco y particiones</h3>
+  <div class="card">
+    <?php foreach ($partitions as $part):
+      $pct = (int) ($part['use_percent'] ?? 0);
+      $barClass = $pct >= 90 ? 'err' : ($pct >= 75 ? 'warn' : '');
+      $total = format_size_kb((int) ($part['size_kb'] ?? 0));
+      $used = format_size_kb((int) ($part['used_kb'] ?? 0));
+      $avail = format_size_kb((int) ($part['avail_kb'] ?? 0));
+    ?>
+      <div class="disk-row">
+        <div class="disk-info">
+          <div class="mono"><?= e($part['mount']) ?></div>
+          <div class="muted" style="font-size:.82rem"><?= e($part['filesystem']) ?></div>
+          <div class="disk-bar <?= $barClass ?>"><div style="width:<?= min(100, $pct) ?>%"></div></div>
+        </div>
+        <div class="disk-meta">
+          <span class="disk-pct"><?= $pct ?>%</span> ·
+          <?= $used ?> / <?= $total ?>
+          <br><span class="muted">libre <?= $avail ?></span>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
+
 <?php if (!empty($sites)): ?>
 <section class="mb-2">
   <h3>Sitios</h3>

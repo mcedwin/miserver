@@ -842,7 +842,8 @@ case "$cmd" in
     ;;
 
   sys:info)
-    df -Pk / 2>/dev/null | tail -1 | awk '{print "disk|"$2"|"$3"|"$4"|"$5}'
+    # Particiones: filesystem, 1K-blocks, used, available, use%, mountpoint
+    df -Pk 2>/dev/null | tail -n +2 | awk '{print "part|"$1"|"$2"|"$3"|"$4"|"$5"|"$6}'
     free -m | awk '/Mem:/{print "mem|"$2"|"$3"|"$4}'
     awk '{print "load|"$1"|"$2"|"$3}' /proc/loadavg 2>/dev/null || true
     for h in /home/*/; do
