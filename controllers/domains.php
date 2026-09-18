@@ -64,11 +64,6 @@ function ctrl_domains_store(): void
         $folder = trim(post('folder', '') ?? '');
         $folder = $folder === '' ? $domain : $folder;
         $folder = require_match(RE_FOLDER, $folder, 'Carpeta no válida.');
-        foreach (explode('/', $folder) as $seg) {
-            if ($seg === 'public_html') {
-                respond(false, 'No se permite public_html dentro de la ruta del proyecto; usa otra carpeta.');
-            }
-        }
         $documentRoot = trim(post('document_root', '') ?? '');
         if ($documentRoot === '') {
             $documentRoot = $folder;
