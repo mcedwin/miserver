@@ -228,7 +228,7 @@ function ctrl_apps_env(array $p): void
     $directPath = '/home/' . $owner['user'] . '/' . $rel;
     $content = @file_get_contents($directPath) ?: '';
     $existed = $content !== '';
-die($rel);
+die($directPath);
     if (!$existed && @is_file($directPath)) {
         $r = ctl_run_read(['fs:cat', $owner['user'], $rel, '2097152']);
         die(print_r($r));
