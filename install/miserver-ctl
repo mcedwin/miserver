@@ -1107,10 +1107,12 @@ case "$cmd" in
     elif [ -f "$dir/package.json" ]; then
       type=node; webroot='.'
       # Vue: depende de @vue/cli, vite o del paquete vue en package.json.
+      # El build genera dist/ por defecto, asi que el DocumentRoot apunta alli.
       if [ -f "$dir/vue.config.js" ] || [ -f "$dir/vue.config.ts" ] || \
          [ -f "$dir/vite.config.js" ] || [ -f "$dir/vite.config.ts" ] || \
          grep -qE '"(@vue/cli-service|vue)"\s*:' "$dir/package.json" 2>/dev/null; then
         type=vue
+        webroot=dist
       fi
     fi
     echo "type|$type"

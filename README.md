@@ -160,7 +160,8 @@ URL ni en la BD en claro):
     - **WordPress** (`wp-config.php`) → DocumentRoot raíz (`…/carpeta`)
     - **PHP** (`index.php/html` o `public/index.php`) → según caso
     - **Node/Vue** (`package.json`; Vue se detecta por `vue.config.*`,
-      `vite.config.*` o dependencias `@vue/cli-service`/`vue`) → raíz
+      `vite.config.*` o dependencias `@vue/cli-service`/`vue`) → DocumentRoot
+      `…/dist` (carpeta generada por `npm run build`)
     - **Otro** → raíz, sin despliegue automático
 3. Tras crear, se despliega automáticamente (`app:deploy … all` = **Composer +
    npm + caches**, sin migraciones) y quedan botones para **Desplegar**, **Pull**,
