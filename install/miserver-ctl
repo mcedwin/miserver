@@ -1062,26 +1062,26 @@ case "$cmd" in
     # Los clones son --depth 1; git pull --rebase falla frecuentemente en repos
     # shallow. Usamos fetch --depth 1 + checkout forzado a origin/<rama>: es mas
     # robusto para despliegues (Vue/Node/PHP) y descarta cambios locales tracked.
-    run_git() { env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" "$@"; }
+    # NOTA: timeout no puede ejecutar funciones bash, por eso se repite el git base.
     if [ -n "$br" ]; then
-      if ! timeout 300 run_git fetch --depth 1 origin "$br" 2>&1; then
+      if ! timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" fetch --depth 1 origin "$br" 2>&1; then
         log "git:pull fetch fallo $u $f"
         die "git fetch fallo"
       fi
-      if ! run_git checkout -f -B "$br" "origin/$br" 2>&1; then
+      if ! env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" checkout -f -B "$br" "origin/$br" 2>&1; then
         log "git:pull checkout fallo $u $f"
         die "git checkout fallo"
       fi
     else
-      if ! timeout 300 run_git fetch --depth 1 --all 2>&1; then
+      if ! timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" fetch --depth 1 --all 2>&1; then
         log "git:pull fetch fallo $u $f"
         die "git fetch fallo"
       fi
-      local_head="$(run_git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+      local_head="$(env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
       if [ -z "$local_head" ] || [ "$local_head" = "HEAD" ]; then
         die "no se pudo determinar la rama local"
       fi
-      if ! run_git checkout -f -B "$local_head" "origin/$local_head" 2>&1; then
+      if ! env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" checkout -f -B "$local_head" "origin/$local_head" 2>&1; then
         log "git:pull checkout fallo $u $f"
         die "git checkout fallo"
       fi
@@ -1114,26 +1114,26 @@ case "$cmd" in
     fi
     # Los clones son --depth 1; git pull --rebase falla frecuentemente en repos
     # shallow (Vue/Node). Usamos fetch --depth 1 + checkout forzado a origin/<rama>.
-    run_git() { env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" "$@"; }
+    # NOTA: timeout no puede ejecutar funciones bash, por eso se repite el git base.
     if [ -n "$br" ]; then
-      if ! timeout 300 run_git fetch --depth 1 origin "$br" 2>&1; then
+      if ! timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" fetch --depth 1 origin "$br" 2>&1; then
         log "app:pull fetch fallo $u $f"
         die "git fetch fallo"
       fi
-      if ! run_git checkout -f -B "$br" "origin/$br" 2>&1; then
+      if ! env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" checkout -f -B "$br" "origin/$br" 2>&1; then
         log "app:pull checkout fallo $u $f"
         die "git checkout fallo"
       fi
     else
-      if ! timeout 300 run_git fetch --depth 1 --all 2>&1; then
+      if ! timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" fetch --depth 1 --all 2>&1; then
         log "app:pull fetch fallo $u $f"
         die "git fetch fallo"
       fi
-      local_head="$(run_git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+      local_head="$(env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
       if [ -z "$local_head" ] || [ "$local_head" = "HEAD" ]; then
         die "no se pudo determinar la rama local"
       fi
-      if ! run_git checkout -f -B "$local_head" "origin/$local_head" 2>&1; then
+      if ! env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" checkout -f -B "$local_head" "origin/$local_head" 2>&1; then
         log "app:pull checkout fallo $u $f"
         die "git checkout fallo"
       fi
