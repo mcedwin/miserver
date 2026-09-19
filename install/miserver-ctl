@@ -593,26 +593,36 @@ case "$cmd" in
         timeout 450 certbot --apache --non-interactive --agree-tos --redirect --register-unsafely-without-email -d "$d"
       fi
     }
-    # Reintenta hasta ~4 min: el DNS del dominio recién creado puede tardar en
-    # propagar. Cada intento escribe progreso -> visible en "Tareas".
-    MAX_INTENTOS=12
-    i=0
-    while [ "$i" -lt "$MAX_INTENTOS" ]; do
-      i=$((i + 1))
-      ip="$(getent hosts "$d" | awk '{print $1}' | head -1 || true)"
-      echo "[cert] $d intento $i/$MAX_INTENTOS (DNS=$ip)"
-      if [ -n "$ip" ] && run_cert; then
-        apache_reload
-        echo ok
-        exit 0
+    # Un solo intento: si el DNS/propagacion no esta listo, el admin lo reintenta
+    # manualmente desde el panel; asi no se satura Let's Encrypt ni el servidor.
+    ip="$(getent hosts "$d" | awk '{print $1}' | head -1 || true)"
+    echo "[cert] $d intento 1/1 (DNS=$ip)"
+    if [ -z "$ip" ]; then
+      prune_ssl_vhost "$d"
+      apache_reload 2>/dev/null || true
+      echo "error: no se pudo resolver $d por DNS" >&2
+      exit 1
+    fi
+    if run_cert; then
+      # Panel: el vhost original incluye un bloque :443 con certificado autofirmado.
+      # Si certbot creo un -le-ssl.conf separado, el :443 original puede cargarse
+      # primero y servir el certificado equivocado. Comentamos ese bloque original.
+      if is_panel_vhost "$d" && [ -f "/etc/apache2/sites-available/${d}-le-ssl.conf" ]; then
+        if grep -qE '^[[:space:]]*<VirtualHost[^>]*:443[[:space:]]*>' "/etc/apache2/sites-available/${d}.conf" 2>/dev/null; then
+          sed -i '/^[[:space:]]*<VirtualHost[^>]*:443[[:space:]]*>/,/^[[:space:]]*<\/VirtualHost>[[:space:]]*$/s/^/# /' "/etc/apache2/sites-available/${d}.conf"
+          log "cert:issue bloque :443 original de $d comentado para evitar conflicto con LE"
+        fi
+        a2ensite "${d}-le-ssl.conf" >/dev/null 2>&1 || true
       fi
-      [ "$i" -lt "$MAX_INTENTOS" ] && sleep 20
-    done
-    # Limpia el vhost SSL residual que pudo dejar certbot en los intentos fallidos
+      apache_reload
+      echo ok
+      exit 0
+    fi
+    # Limpia el vhost SSL residual que pudo dejar certbot en el intento fallido
     # (si no, apache2ctl -t falla para todos los dominios) y deja Apache validando.
     prune_ssl_vhost "$d"
     apache_reload 2>/dev/null || true
-    echo "error: no se pudo emitir el certificado para $d (¿DNS apunta a este servidor y el puerto 80 está abierto?)" >&2
+    echo "error: no se pudo emitir el certificado para $d (¿DNS apunta a este servidor y el puerto 80 esta abierto?)" >&2
     exit 1
     ;;
 
@@ -1049,10 +1059,32 @@ case "$cmd" in
     if [ -n "$helper" ]; then
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
+    # Los clones son --depth 1; git pull --rebase falla frecuentemente en repos
+    # shallow. Usamos fetch --depth 1 + checkout forzado a origin/<rama>: es mas
+    # robusto para despliegues (Vue/Node/PHP) y descarta cambios locales tracked.
+    run_git() { env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" "$@"; }
     if [ -n "$br" ]; then
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 origin "$br" 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
+      if ! timeout 300 run_git fetch --depth 1 origin "$br" 2>&1; then
+        log "git:pull fetch fallo $u $f"
+        die "git fetch fallo"
+      fi
+      if ! run_git checkout -f -B "$br" "origin/$br" 2>&1; then
+        log "git:pull checkout fallo $u $f"
+        die "git checkout fallo"
+      fi
     else
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 2>&1 || { log "git:pull fallo $u $f"; die "git pull fallo"; }
+      if ! timeout 300 run_git fetch --depth 1 --all 2>&1; then
+        log "git:pull fetch fallo $u $f"
+        die "git fetch fallo"
+      fi
+      local_head="$(run_git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+      if [ -z "$local_head" ] || [ "$local_head" = "HEAD" ]; then
+        die "no se pudo determinar la rama local"
+      fi
+      if ! run_git checkout -f -B "$local_head" "origin/$local_head" 2>&1; then
+        log "git:pull checkout fallo $u $f"
+        die "git checkout fallo"
+      fi
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     echo ok
@@ -1080,10 +1112,31 @@ case "$cmd" in
     if [ -n "$helper" ]; then
       extra=(-c credential.helper= -c credential.helper="$helper")
     fi
+    # Los clones son --depth 1; git pull --rebase falla frecuentemente en repos
+    # shallow (Vue/Node). Usamos fetch --depth 1 + checkout forzado a origin/<rama>.
+    run_git() { env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" "$@"; }
     if [ -n "$br" ]; then
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 origin "$br" 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
+      if ! timeout 300 run_git fetch --depth 1 origin "$br" 2>&1; then
+        log "app:pull fetch fallo $u $f"
+        die "git fetch fallo"
+      fi
+      if ! run_git checkout -f -B "$br" "origin/$br" 2>&1; then
+        log "app:pull checkout fallo $u $f"
+        die "git checkout fallo"
+      fi
     else
-      timeout 300 env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$target" -c safe.directory="$target" "${extra[@]}" pull --rebase --depth 1 2>&1 || { log "app:pull git fallo $u $f"; die "git pull fallo"; }
+      if ! timeout 300 run_git fetch --depth 1 --all 2>&1; then
+        log "app:pull fetch fallo $u $f"
+        die "git fetch fallo"
+      fi
+      local_head="$(run_git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+      if [ -z "$local_head" ] || [ "$local_head" = "HEAD" ]; then
+        die "no se pudo determinar la rama local"
+      fi
+      if ! run_git checkout -f -B "$local_head" "origin/$local_head" 2>&1; then
+        log "app:pull checkout fallo $u $f"
+        die "git checkout fallo"
+      fi
     fi
     chown -R "$u:$u" "$target" 2>/dev/null || true
     do_app_deploy "$u" "$f" "$pv" "all"
