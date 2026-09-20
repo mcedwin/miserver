@@ -126,7 +126,8 @@ php cli.php health
 
 | Ruta           | Función                                                        |
 | -------------- | -------------------------------------------------------------- |
-| `/`            | Dashboard: stats, sitios, últimas tareas y backups (crear/descargar) |
+| `/`            | Dashboard: stats, sitios, últimas tareas y uso de disco        |
+| `/disk`        | Backups: crear/descargar/eliminar, uso de disco y carpetas     |
 | `/download`    | Descarga de backups (`?f=archivo`)                             |
 | `/users`       | Alta/baja de cuentas (admin): usuario Linux + MySQL + vhost    |
 | `/dbs`         | Bases y usuarios MySQL, permisos (relaciones)                  |
@@ -271,4 +272,4 @@ Notas:
   `/var/log/apache2/miserver-panel-*`.
 - Los crontab de estudiantes se instalan en la cuenta correspondiente; el panel
   no agrega tareas propias. Los backups son manuales y se disparan desde el
-  dashboard (Inicio → Crear backup).
+  menú Backups (completo, solo BD o por carpeta).

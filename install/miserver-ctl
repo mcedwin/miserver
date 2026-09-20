@@ -174,20 +174,134 @@ apache_reload() {
   systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
 }
 
+# ---------------------------------------------------------------------------
+# VirtualHost fallback: captura todo tráfico HTTP/HTTPS que no coincida con un
+# dominio real.  Se carga primero (nombre "000-...") para ser el default server
+# de cada puerto y evitar que dominios sin SSL/cert vencido sirvan contenido de
+# otro sitio.
+# ---------------------------------------------------------------------------
+FALLBACK_NAME="miserver-fallback.invalid"
+FALLBACK_DIR="/var/www/miserver-fallback"
+FALLBACK_CONF="000-miserver-fallback.conf"
+FALLBACK_KEY="/etc/ssl/miserver/miserver-fallback.key"
+FALLBACK_CRT="/etc/ssl/miserver/miserver-fallback.crt"
+
+vhost_fallback_dir() {
+  install -d -m 0755 "$FALLBACK_DIR"
+  chown root:www-data "$FALLBACK_DIR" 2>/dev/null || true
+}
+
+vhost_fallback_cert() {
+  install -d -m 0755 /etc/ssl/miserver
+  if [ ! -f "$FALLBACK_KEY" ] || [ ! -f "$FALLBACK_CRT" ]; then
+    openssl req -x509 -nodes -newkey rsa:2048 -days 1095 \
+      -keyout "$FALLBACK_KEY" \
+      -out "$FALLBACK_CRT" \
+      -subj "/CN=${FALLBACK_NAME}" \
+      -addext "subjectAltName=DNS:${FALLBACK_NAME}" >/dev/null 2>&1
+  fi
+  chmod 600 "$FALLBACK_KEY" 2>/dev/null || true
+}
+
+vhost_fallback_config() {
+  cat > "/etc/apache2/sites-available/${FALLBACK_CONF}" <<APACHE
+<VirtualHost *:80>
+  ServerName ${FALLBACK_NAME}
+  DocumentRoot ${FALLBACK_DIR}
+  <Directory ${FALLBACK_DIR}>
+    Require all denied
+  </Directory>
+  ErrorLog \${APACHE_LOG_DIR}/miserver-fallback-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-fallback-access.log combined
+</VirtualHost>
+
+<VirtualHost *:443>
+  ServerName ${FALLBACK_NAME}
+  DocumentRoot ${FALLBACK_DIR}
+  SSLEngine on
+  SSLCertificateFile ${FALLBACK_CRT}
+  SSLCertificateKeyFile ${FALLBACK_KEY}
+  <Directory ${FALLBACK_DIR}>
+    Require all denied
+  </Directory>
+  ErrorLog \${APACHE_LOG_DIR}/miserver-fallback-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-fallback-access.log combined
+</VirtualHost>
+APACHE
+  chmod 644 "/etc/apache2/sites-available/${FALLBACK_CONF}"
+}
+
+# Asegura que el vhost fallback exista, esté habilitado y sea el primero en
+# sites-enabled para convertirse en default server.  Idempotente y segura.
+vhost_fallback_ensure() {
+  vhost_fallback_dir
+  vhost_fallback_cert
+  vhost_fallback_config
+  a2ensite "$FALLBACK_CONF" >/dev/null 2>&1 || true
+  # Limpia symlinks viejos si alguien habilitó el fallback con otro nombre.
+  local enabled="/etc/apache2/sites-enabled" link target
+  for link in "$enabled"/*; do
+    [ -L "$link" ] || continue
+    target="$(readlink -f "$link" 2>/dev/null || true)"
+    if [ "$target" = "/etc/apache2/sites-available/${FALLBACK_CONF}" ]; then
+      local bn
+      bn="$(basename "$link")"
+      [ "$bn" = "$FALLBACK_CONF" ] || rm -f -- "$link"
+    fi
+  done
+  # Deshabilita los sitios por defecto de Ubuntu (y el viejo catch-all de
+  # MiServer) que compitan como default.
+  a2dissite 000-default.conf >/dev/null 2>&1 || true
+  a2dissite default-ssl.conf >/dev/null 2>&1 || true
+  a2dissite miserver-default.conf >/dev/null 2>&1 || true
+  rm -f /etc/apache2/sites-available/miserver-default.conf
+}
+
+# Devuelve el default server para el puerto pedido según apache2ctl -S.
+vhost_default_server() {
+  local port="${1:-80}"
+  apache2ctl -S 2>/dev/null | awk -v p="$port" '
+    /^[[:space:]]*default server / {
+      gsub(/^[[:space:]]*default server /, "", $0)
+      def = $1
+    }
+    /^[[:space:]]*port / {
+      if ($2 == p && def != "") {
+        print def
+        exit
+      }
+    }
+  '
+}
+
 # Un "certbot --apache" fallido (p.ej. DNS aún sin apuntar al servidor) puede dejar
 # un vhost SSL residual (<d>-le-ssl.conf) que referencia un certificado inexistente
-# y rompe apache2ctl -t para TODOS los dominios. Esta función elimina SOLO ese
-# vhost residual (el que referencia un live/ que ya no tiene fullchain.pem); un
-# vhost SSL válido se conserva.
+# y rompe apache2ctl -t para TODOS los dominios. También elimina vhosts SSL cuyo
+# certificado haya vencido, para que un dominio sin SSL válido no sirva por HTTPS
+# el contenido de otro sitio.
+# Esta función elimina SOLO esos vhosts; un vhost SSL válido se conserva.
 prune_ssl_vhost() { # $1=dominio
-  local d="$1" base sc
+  local d="$1" base sc remove
   for sc in "/etc/apache2/sites-available/${d}-le-ssl.conf" "/etc/apache2/sites-available/${d}-ssl.conf"; do
     [ -f "$sc" ] || continue
     base="$(basename "$sc")"
+    remove=0
     if grep -q "/etc/letsencrypt/live/$d/" "$sc" 2>/dev/null && [ ! -f "/etc/letsencrypt/live/$d/fullchain.pem" ]; then
+      remove=1
+    fi
+    if [ "$remove" = 0 ] && grep -q "/etc/letsencrypt/live/$d/" "$sc" 2>/dev/null && [ -f "/etc/letsencrypt/live/$d/fullchain.pem" ]; then
+      local exp_raw exp_epoch now_epoch
+      exp_raw="$(openssl x509 -in "/etc/letsencrypt/live/$d/fullchain.pem" -noout -enddate 2>/dev/null | cut -d= -f2- || true)"
+      exp_epoch="$(date -d "$exp_raw" +%s 2>/dev/null || echo 0)"
+      now_epoch="$(date +%s)"
+      if [ "$exp_epoch" -lt "$now_epoch" ]; then
+        remove=1
+      fi
+    fi
+    if [ "$remove" = 1 ]; then
       a2dissite "$base" >/dev/null 2>&1 || true
       rm -f -- "$sc" "/etc/apache2/sites-enabled/$base"
-      log "vhost SSL residual de $d eliminado ($base)"
+      log "vhost SSL residual/vencido de $d eliminado ($base)"
     fi
   done
 }
@@ -224,6 +338,9 @@ vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_ve
   vuser "$u"; vdom "$d"; vrel "$f"
   if [ -n "$dr" ]; then vrel "$dr"; fi
   vver "$pv"
+  # Asegura primero el fallback para no dejar que este dominio se convierta en
+  # default server por accidente.
+  vhost_fallback_ensure
   if is_panel_vhost "$d"; then
     echo "vhost del panel, se respeta"
     return
@@ -515,6 +632,64 @@ case "$cmd" in
     echo ok
     ;;
 
+  vhost:fallback)
+    vhost_fallback_ensure
+    if apache2ctl -t >/dev/null 2>&1; then
+      apache_reload
+    else
+      echo "error: la configuración de Apache no es válida" >&2
+      apache2ctl -t >&2
+      exit 2
+    fi
+    echo "default server: $(vhost_default_server 80) / $(vhost_default_server 443)"
+    echo ok
+    ;;
+
+  vhost:migrate)
+    log "vhost:migrate"
+    default80="$(vhost_default_server 80)"
+    default443="$(vhost_default_server 443)"
+    echo "[migrate] default server actual: HTTP=${default80:-(ninguno)} HTTPS=${default443:-(ninguno)}"
+    vhost_fallback_ensure
+    # Limpia vhosts SSL vencidos o huérfanos de dominios habilitados.
+    for sc in /etc/apache2/sites-enabled/*-le-ssl.conf /etc/apache2/sites-enabled/*-ssl.conf; do
+      [ -L "$sc" ] || continue
+      bn="$(basename "$sc")"
+      dname="${bn%-le-ssl.conf}"
+      dname="${dname%-ssl.conf}"
+      [ -n "$dname" ] && prune_ssl_vhost "$dname"
+    done
+    if apache2ctl -t >/dev/null 2>&1; then
+      systemctl reload apache2 >/dev/null 2>&1 || apache2ctl graceful >/dev/null 2>&1 || true
+      echo "[migrate] default server ahora: HTTP=$(vhost_default_server 80) HTTPS=$(vhost_default_server 443)"
+      echo ok
+    else
+      echo "error: la configuración de Apache no es válida tras la migración" >&2
+      apache2ctl -t >&2
+      exit 2
+    fi
+    ;;
+
+  cert:prune)
+    log "cert:prune"
+    for sc in /etc/apache2/sites-enabled/*-le-ssl.conf /etc/apache2/sites-enabled/*-ssl.conf \
+              /etc/apache2/sites-available/*-le-ssl.conf /etc/apache2/sites-available/*-ssl.conf; do
+      [ -f "$sc" ] || [ -L "$sc" ] || continue
+      bn="$(basename "$sc")"
+      dname="${bn%-le-ssl.conf}"
+      dname="${dname%-ssl.conf}"
+      [ -n "$dname" ] && prune_ssl_vhost "$dname"
+    done
+    if apache2ctl -t >/dev/null 2>&1; then
+      apache_reload
+      echo ok
+    else
+      echo "error: la configuración de Apache no es válida tras podar certificados" >&2
+      apache2ctl -t >&2
+      exit 2
+    fi
+    ;;
+
   vhost:check)
     [ $# -ge 1 ] || die "vhost:check <dominio>"
     d="$1"; vdom "$d"
@@ -579,11 +754,23 @@ case "$cmd" in
     echo "status|ok|$exp|$days"
     ;;
 
+  cert:disable)
+    [ $# -ge 1 ] || die "cert:disable <dominio>"
+    d="$1"; vdom "$d"
+    log "cert:disable $d"
+    prune_ssl_vhost "$d"
+    apache_reload
+    echo ok
+    ;;
+
   cert:issue)
     [ $# -ge 1 ] || die "cert:issue <dominio> [email]"
     d="$1"; vdom "$d"
     email="${2:-}"
     log "cert:issue $d"
+    # Asegura que el fallback exista antes de crear el vhost 443, para que el
+    # nuevo dominio SSL no se convierta accidentalmente en default server.
+    vhost_fallback_ensure
     run_cert() {
       # timeout 450: seguro anti-cuelgue por intento (certbot no puede quedarse
       # colgado esperando respuesta de DNS/puerto 80 para siempre).
@@ -956,6 +1143,35 @@ case "$cmd" in
     [ $rc_db -eq 0 ] || echo "aviso: la copia de bases de datos fallo rc=$rc_db (log: $LOG_DIR/backup-db.log)"
     ls -1 "${prefix}"* 2>/dev/null | sed "s#^$save_dir/##" || true
     [ -e "${prefix}-homes.tar.gz" ] || [ -e "${prefix}-db.sql.gz" ] || die "el backup no genero archivos"
+    exit 0
+    ;;
+
+  # --- Backup de bases de datos (solo BD de usuarios) -----------------------
+  backup:db)
+    save_dir="${BACKUP_DIR:-/var/backups/miserver}"
+    mkdir -p "$save_dir" 2>/dev/null || { echo "no se puede crear $save_dir"; exit 0; }
+    chown root:miserver "$save_dir" 2>/dev/null || true
+    chmod 0750 "$save_dir" 2>/dev/null || true
+    ts="$(date +%Y%m%d-%H%M%S)"
+    prefix="$save_dir/bk-${ts}"
+    log "backup:db -> $prefix"
+    rc_db=0
+    dbs=""
+    while IFS= read -r db; do
+      case "$db" in information_schema|performance_schema|mysql|sys|miserver) continue;; esac
+      dbs="$dbs $db"
+    done < <(msql --batch --skip-column-names -e 'SHOW DATABASES' 2>"$LOG_DIR/backup-db.log" || true)
+    if [ -n "$dbs" ]; then
+      mysqldump --protocol=socket --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
+    else
+      echo "aviso: no hay bases de datos de usuario para respaldar" >&2
+    fi
+    chown root:miserver "${prefix}"* 2>/dev/null || true
+    chmod 0640 "${prefix}"* 2>/dev/null || true
+    echo "bk-${ts}"
+    [ $rc_db -eq 0 ] || echo "aviso: la copia de bases de datos fallo rc=$rc_db (log: $LOG_DIR/backup-db.log)"
+    ls -1 "${prefix}"* 2>/dev/null | sed "s#^$save_dir/##" || true
+    [ -e "${prefix}-db.sql.gz" ] || die "el backup no genero archivos"
     exit 0
     ;;
 

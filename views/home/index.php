@@ -81,35 +81,3 @@ $u = current_user();
   <a class="btn btn-sm" href="<?= url('jobs') ?>">Ver todas</a>
 </section>
 <?php endif; ?>
-
-<?php if (!empty($backups)): ?>
-<section class="mb-2">
-  <div class="section-header">
-    <h3>Backups</h3>
-    <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
-      <svg class="ic"><use href="#i-upload"/></svg> Crear backup
-    </button>
-  </div>
-  <div class="list-group scroll-y" style="max-height:180px">
-    <?php foreach ($backups as $b): ?>
-      <div class="list-row">
-          <span class="mono" title="<?= e(implode(' ',$b)) ?>"><?= e($b[1] ?? '?') ?></span>
-          <span><?= e($b[2] ?? '') ?></span>
-          <a class="btn btn-sm" href="<?= url('download?f=' . urlencode($b[count($b)-1] ?? '')) ?>">descargar</a>
-          <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar este backup?" data-post="<?= url('backup/delete?f=' . urlencode($b[count($b)-1] ?? '')) ?>">Eliminar</button>
-      </div>
-    <?php endforeach; ?>
-  </div>
-  <p class="muted mt-1">Cada click crea un respaldo con los homes (archivos y carpetas) y las bases de datos en <code><?= e(env('BACKUP_DIR', '/var/backups/miserver')) ?></code>. El progreso lo ves en Tareas.</p>
-</section>
-<?php else: ?>
-<section class="mb-2">
-  <div class="section-header">
-    <h3>Backups</h3>
-    <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
-      <svg class="ic"><use href="#i-upload"/></svg> Crear backup
-    </button>
-  </div>
-  <p class="muted">Aún no hay backups. Pulsa <b>Crear backup</b> para respaldar archivos, carpetas y bases de datos.</p>
-</section>
-<?php endif; ?>

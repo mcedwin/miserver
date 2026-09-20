@@ -157,6 +157,17 @@ try {
             cli_out('Tabla `app`, columna `domain.app_id` y FK verificadas/añadidas.');
             break;
 
+        case 'migrate-vhosts':
+            // Migración automática del fallback/default server en Apache.
+            if (!ctl_available()) {
+                cli_out('Wrapper no disponible.');
+                exit(1);
+            }
+            $r = ctl_run(['vhost:migrate']);
+            cli_out(trim($r['out']));
+            exit($r['exit']);
+            break;
+
         case 'help':
         default:
             cli_out('Comandos del panel:');
@@ -166,6 +177,7 @@ try {
             cli_out('  home-linux                crea el public_html del admin sin tocar claves');
             cli_out('  domains-check [--domain=X]  verifica DocumentRoot/servido real de un dominio');
             cli_out('  upgrade-schema            añade tabla `app` y vinculación a `domain` (idempotente)');
+            cli_out('  migrate-vhosts            asegura vhost fallback y corrige default server de Apache');
             cli_out('  migrate                   adapta el esquema antiguo al nuevo');
             break;
     }

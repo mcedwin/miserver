@@ -19,11 +19,11 @@ function ctrl_disk_index(): void
     }
     $info = sys_info();
     render('disk/index', [
-        'title' => 'Discos',
+        'title' => 'Backups',
         'active' => 'disk',
         'isAdmin' => $isAdmin,
         'users' => $users,
-        'backups' => parse_pipe_lines($info['backups']['raw'] ?? ''),
+        'backups' => disk_parse_backups($info['backups']['raw'] ?? ''),
     ]);
 }
 
@@ -119,4 +119,86 @@ function ctrl_disk_backup(): void
     $jid = job_create('backup', 'carpeta ' . $target, (int) $u['id']);
     job_spawn($jid, ['backup:folder', $user, $rel]);
     respond(true, 'Backup de ' . $target . ' en curso. Se verá en la lista de backups cuando termine.', url('disk'));
+}
+
+/** Backup completo: homes + bases de datos. */
+function ctrl_disk_backup_all(): void
+{
+    $u = require_login();
+    csrf_check();
+    $jid = job_create('backup', 'todo el servidor', (int) $u['id']);
+    job_spawn($jid, ['backup:run']);
+    respond(true, 'Backup completo en curso. Cuando termine podrás descargarlo desde Backups.', url('disk'));
+}
+
+/** Backup de todas las bases de datos de usuario. */
+function ctrl_disk_backup_db(): void
+{
+    $u = require_login();
+    csrf_check();
+    $jid = job_create('backup', 'bases de datos', (int) $u['id']);
+    job_spawn($jid, ['backup:db']);
+    respond(true, 'Backup de bases de datos en curso. Cuando termine podrás descargarlo desde Backups.', url('disk'));
+}
+
+/** Descarga un backup existente. */
+function ctrl_disk_download(): void
+{
+    require_login();
+    $f = query('f', '');
+    $dir = rtrim(env('BACKUP_DIR', '/var/backups/miserver'), '/');
+    if ($f === '' || !preg_match('/^[a-zA-Z0-9._-]+\.(tar\.gz|sql\.gz|gz)$/', $f)) {
+        respond(false, 'Archivo no válido.');
+    }
+    $full = $dir . '/' . $f;
+    $real = realpath($full);
+    if ($real === false || strpos(str_replace('\\', '/', $real), rtrim(str_replace('\\', '/', realpath($dir) ?: $dir), '/') . '/') !== 0) {
+        respond(false, 'Archivo no encontrado.');
+    }
+    if (!is_readable($real)) {
+        respond(false, 'El archivo de backup no es legible por el panel (permisos).');
+    }
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . $f . '"');
+    header('Content-Length: ' . (string) filesize($real));
+    readfile($real);
+    exit;
+}
+
+/** Elimina un backup existente. */
+function ctrl_disk_backup_delete(): void
+{
+    require_login();
+    csrf_check();
+    $f = query('f', '');
+    if ($f === '' || !preg_match('/^[a-zA-Z0-9._-]+\.(tar\.gz|sql\.gz|gz)$/', $f)) {
+        respond(false, 'Archivo no válido.');
+    }
+    $r = ctl_run(['backup:del', $f]);
+    if ($r['exit'] !== 0) {
+        respond(false, 'Error al eliminar el backup: ' . e($r['out']));
+    }
+    respond(true, 'Backup eliminado.', url('disk'));
+}
+
+/** Parsea la salida pipe-delimited del wrapper backup:list a arrays estructurados. */
+function disk_parse_backups(string $raw): array
+{
+    $rows = [];
+    foreach (preg_split('/\r?\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '' || strncmp($line, 'file|', 5) !== 0) {
+            continue;
+        }
+        $p = explode('|', $line);
+        if (count($p) < 4) {
+            continue;
+        }
+        $rows[] = [
+            'size' => (int) $p[1],
+            'date' => $p[2],
+            'name' => $p[3],
+        ];
+    }
+    return $rows;
 }

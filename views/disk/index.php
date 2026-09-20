@@ -1,34 +1,52 @@
-<?php /** views/disk/index.php - uso de disco con desglose por carpetas */ ?>
+<?php /** views/disk/index.php - Backups + uso de disco con desglose por carpetas */ ?>
 <div class="section-header">
-  <h3>Discos</h3>
+  <h3>Backups</h3>
 </div>
 
 <section class="card mb-1">
   <div class="section-header">
-    <h4>Backups</h4>
-    <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
-      <svg class="ic"><use href="#i-upload"/></svg> Crear backup
-    </button>
+    <h4>Backups del servidor</h4>
+    <div>
+      <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
+        <svg class="ic"><use href="#i-upload"/></svg> Backup completo
+      </button>
+      <button class="btn btn-info" data-post="<?= url('backup/db') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup de todas las bases de datos de usuario?">
+        <svg class="ic"><use href="#i-database"/></svg> Backup BD
+      </button>
+    </div>
   </div>
   <?php if (!empty($backups)): ?>
-    <div class="list-group scroll-y" style="max-height:180px">
-      <?php foreach ($backups as $b): ?>
-        <div class="list-row">
-          <span class="mono" title="<?= e(implode(' ', $b)) ?>"><?= e($b[count($b) - 1] ?? '?') ?></span>
-          <span><?= e($b[1] ?? '') ?> bytes</span>
-          <span class="muted"><?= e($b[2] ?? '') ?></span>
-          <a class="btn btn-sm" href="<?= url('download?f=' . urlencode($b[count($b) - 1] ?? '')) ?>">descargar</a>
-          <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar este backup?" data-post="<?= url('backup/delete?f=' . urlencode($b[count($b) - 1] ?? '')) ?>">Eliminar</button>
-        </div>
-      <?php endforeach; ?>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Archivo</th><th>Tamaño</th><th>Fecha</th><th class="actions" style="justify-content:flex-end"></th></tr>
+        </thead>
+        <tbody>
+          <?php foreach ($backups as $b): ?>
+            <tr>
+              <td class="mono"><?= e($b['name']) ?></td>
+              <td><?= e(bytes_human($b['size'])) ?></td>
+              <td class="muted"><?= e($b['date']) ?></td>
+              <td class="actions" style="justify-content:flex-end">
+                <a class="btn btn-xs" href="<?= url('download?f=' . urlencode($b['name'])) ?>">descargar</a>
+                <button class="btn btn-danger btn-xs" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar este backup?" data-post="<?= url('backup/delete?f=' . urlencode($b['name'])) ?>">Eliminar</button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
     </div>
   <?php else: ?>
-    <p class="muted">Aún no hay backups. Pulsa <b>Crear backup</b> para respaldar archivos, carpetas y bases de datos. Cuando termine, aparecerá aquí la opción de descargar.</p>
+    <p class="muted">Aún no hay backups. Pulsa <b>Backup completo</b> o <b>Backup BD</b> para generar uno. Cuando termine, aparecerá aquí.</p>
   <?php endif; ?>
+  <p class="muted mt-1">Los backups se guardan en <code><?= e(env('BACKUP_DIR', '/var/backups/miserver')) ?></code>. El progreso lo ves en <a href="<?= url('jobs') ?>">Tareas</a>.</p>
 </section>
 
-<?php if ($isAdmin): ?>
-  <div class="card mb-1">
+<section class="card mb-1">
+  <div class="section-header">
+    <h4>Uso de disco</h4>
+  </div>
+  <?php if ($isAdmin): ?>
     <div class="row-form">
       <select id="du-user" class="form-control">
         <?php if ($users): ?>
@@ -42,10 +60,10 @@
       <button type="button" class="btn btn-primary" id="du-load">Ver uso</button>
       <p class="muted">El tamaño de cada carpeta se calcula con <code>du</code> al expandirla. Los enlaces simbólicos se muestran pero no se recorren.</p>
     </div>
-  </div>
-<?php endif; ?>
+  <?php else: ?>
+    <p class="muted">Pulsa <b>Ver uso</b> para ver el desglose de tu carpeta de usuario.</p>
+  <?php endif; ?>
 
-<div class="card">
   <div class="du-top">
     <span id="du-path" class="mono"></span>
     <span id="du-status" class="muted"></span>
@@ -60,7 +78,7 @@
       </tbody>
     </table>
   </div>
-</div>
+</section>
 
 <script>
 (function () {

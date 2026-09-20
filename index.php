@@ -12,9 +12,10 @@ require __DIR__ . '/app/bootstrap.php';
 $ROUTES = [
     ['GET',  '/',                   ['home',    'index']],
     ['GET',  '/home',               ['home',    'index']],
-    ['GET',  '/download',           ['home',    'download']],
-    ['POST', '/backup',             ['home',    'backup']],
-    ['POST', '/backup/delete',      ['home',    'backup_delete']],
+    ['GET',  '/download',           ['disk',    'download']],
+    ['POST', '/backup',             ['disk',    'backup_all']],
+    ['POST', '/backup/db',          ['disk',    'backup_db']],
+    ['POST', '/backup/delete',      ['disk',    'backup_delete']],
     ['GET',  '/login',              ['login',   'login']],
     ['POST', '/login',              ['login',   'attempt']],
     ['POST', '/logout',             ['login',   'logout']],

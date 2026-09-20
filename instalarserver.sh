@@ -254,6 +254,8 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Si cambia el wrapper del repo, actualiza la copia root.
 * * * * * root cmp -s /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl || /usr/bin/install -m 0755 /home/miserver/panel/install/miserver-ctl /usr/local/sbin/miserver-ctl
+# Revisa certificados vencidos y deshabilita de forma segura sus vhosts 443.
+17 4 * * * root /usr/local/sbin/miserver-ctl cert:prune >/dev/null 2>&1
 EOF
 chown root:root /etc/cron.d/miserver
 chmod 644 /etc/cron.d/miserver
@@ -293,33 +295,49 @@ if [ ! -f /etc/ssl/miserver/miserver-selfsigned.key ] || [ ! -f /etc/ssl/miserve
 fi
 chmod 600 /etc/ssl/miserver/miserver-selfsigned.key 2>/dev/null || true
 
-# 1) Catch-all NEGADO: cualquier Host sin vhost (IP, dominio raiz, subdominios
-#    sin sitio) recibe 403. El panel SOLO responde al ServerName exacto.
-cat > /etc/apache2/sites-available/miserver-default.conf <<APACHE
-<VirtualHost _default_:80>
-  ServerName miserver-default.invalid
-  DocumentRoot /var/www/html
-  <Directory /var/www/html>
+# 1) Fallback permanente para HTTP/HTTPS no solicitado.  Se carga primero
+#    (000-...) para convertirse en default server de *:80 y *:443, evitando
+#    que dominios sin SSL, con cert vencido o sin VirtualHost 443 sirvan
+#    accidentalmente la web de otro dominio.
+install -d -m 0755 /etc/ssl/miserver
+install -d -m 0755 /var/www/miserver-fallback
+FALLBACK_NAME="miserver-fallback.invalid"
+FALLBACK_KEY="/etc/ssl/miserver/miserver-fallback.key"
+FALLBACK_CRT="/etc/ssl/miserver/miserver-fallback.crt"
+if [ ! -f "$FALLBACK_KEY" ] || [ ! -f "$FALLBACK_CRT" ]; then
+  openssl req -x509 -nodes -newkey rsa:2048 -days 1095 \
+    -keyout "$FALLBACK_KEY" \
+    -out "$FALLBACK_CRT" \
+    -subj "/CN=${FALLBACK_NAME}" \
+    -addext "subjectAltName=DNS:${FALLBACK_NAME}" >/dev/null 2>&1
+fi
+chmod 600 "$FALLBACK_KEY" 2>/dev/null || true
+
+cat > /etc/apache2/sites-available/000-miserver-fallback.conf <<APACHE
+<VirtualHost *:80>
+  ServerName ${FALLBACK_NAME}
+  DocumentRoot /var/www/miserver-fallback
+  <Directory /var/www/miserver-fallback>
     Require all denied
   </Directory>
-  ErrorLog \${APACHE_LOG_DIR}/miserver-default-error.log
-  CustomLog \${APACHE_LOG_DIR}/miserver-default-access.log combined
+  ErrorLog \${APACHE_LOG_DIR}/miserver-fallback-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-fallback-access.log combined
 </VirtualHost>
 
-<VirtualHost _default_:443>
-  ServerName miserver-default.invalid
-  DocumentRoot /var/www/html
+<VirtualHost *:443>
+  ServerName ${FALLBACK_NAME}
+  DocumentRoot /var/www/miserver-fallback
   SSLEngine on
-  SSLCertificateFile /etc/ssl/miserver/miserver-selfsigned.crt
-  SSLCertificateKeyFile /etc/ssl/miserver/miserver-selfsigned.key
-  <Directory /var/www/html>
+  SSLCertificateFile ${FALLBACK_CRT}
+  SSLCertificateKeyFile ${FALLBACK_KEY}
+  <Directory /var/www/miserver-fallback>
     Require all denied
   </Directory>
-  ErrorLog \${APACHE_LOG_DIR}/miserver-default-error.log
-  CustomLog \${APACHE_LOG_DIR}/miserver-default-access.log combined
+  ErrorLog \${APACHE_LOG_DIR}/miserver-fallback-error.log
+  CustomLog \${APACHE_LOG_DIR}/miserver-fallback-access.log combined
 </VirtualHost>
 APACHE
-chmod 644 /etc/apache2/sites-available/miserver-default.conf
+chmod 644 /etc/apache2/sites-available/000-miserver-fallback.conf
 
 # 2) Panel SOLO en el ServerName exacto (sin ServerAlias: ni IP ni www ni raiz
 #    lo sirven; esos caen al catch-all 403 o al túnel 8443).
@@ -447,15 +465,23 @@ cat > /etc/apache2/sites-available/miserver-panel-8443.conf <<APACHE
 APACHE
 chmod 644 /etc/apache2/sites-available/miserver-panel-8443.conf
 
-# Activa catch-all (primero), panel (solo ServerName) y puerto administración.
-a2ensite miserver-default.conf >/dev/null 2>&1 || true
+# Activa fallback (primero), panel (solo ServerName) y puerto administración.
+a2ensite 000-miserver-fallback.conf >/dev/null 2>&1 || true
 a2ensite "${PANEL_HOST}.conf" >/dev/null 2>&1 || true
 a2ensite miserver-panel-8443.conf >/dev/null 2>&1 || true
 a2enconf miserver-panel-8443 >/dev/null 2>&1 || true
-# Desactiva los sitios por defecto de Ubuntu.
+# Desactiva los sitios por defecto de Ubuntu y el viejo catch-all, si existen.
 a2dissite 000-default.conf >/dev/null 2>&1 || true
 a2dissite default-ssl.conf >/dev/null 2>&1 || true
+a2dissite miserver-default.conf >/dev/null 2>&1 || true
+rm -f /etc/apache2/sites-available/miserver-default.conf
 apache2ctl -t >/dev/null && systemctl reload apache2 || exit 1
+
+# En servidores existentes, asegura la migración automática del default server.
+if command -v miserver-ctl >/dev/null 2>&1; then
+  echo "==> Ejecutando migración automática de VirtualHosts..."
+  miserver-ctl vhost:migrate || echo "ATENCIÓN: la migración automática no pudo completarse (revisa arriba)" >&2
+fi
 
 # ---------------------------------------------------------------------------
 log "8/9 Preparando directorio de backups (manuales, desde el panel)."
@@ -486,7 +512,8 @@ cat <<EOF
        ufw allow 3306/tcp  (MySQL REMOTO; los usuarios se crean como 'user'@'%')
    * El panel SOLO responde en el ServerName exacto ${PANEL_HOST} (subdominio
      dedicado) o en https://${IP}:8443 (acceso admin por IP). Cualquier otro
-     Host (dominio raiz, subdominios sin sitio) recibe 403 del vhost catch-all.
+     Host (IP, dominio raiz, subdominios sin sitio o HTTPS sin certificado
+     valido) recibe 403 del vhost fallback (000-miserver-fallback.conf).
    * Los sitios de las cuentas se crean desde el panel con sus propios dominios
      (ServerName exacto).
    * MySQL remoto: la cuenta 'admin' ve todas las bases; el resto solo las suyas

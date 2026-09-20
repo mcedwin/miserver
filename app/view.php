@@ -54,7 +54,7 @@ function menu_items(): array
     $items[] = ['active' => 'dbs', 'url' => 'dbs', 'icon' => 'database', 'label' => 'Bases de datos'];
     $items[] = ['active' => 'domains', 'url' => 'domains', 'icon' => 'globe', 'label' => 'Dominios'];
     $items[] = ['active' => 'files', 'url' => 'files', 'icon' => 'folder', 'label' => 'Archivos'];
-    $items[] = ['active' => 'disk', 'url' => 'disk', 'icon' => 'disk', 'label' => 'Discos'];
+    $items[] = ['active' => 'disk', 'url' => 'disk', 'icon' => 'disk', 'label' => 'Backups'];
     $items[] = ['active' => 'jobs', 'url' => 'jobs', 'icon' => 'tasks', 'label' => 'Tareas'];
     $items[] = ['active' => 'settings', 'url' => 'settings', 'icon' => 'cog', 'label' => 'Configuración'];
     return $items;
