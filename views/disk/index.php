@@ -6,14 +6,16 @@
 <section class="card mb-1">
   <div class="section-header">
     <h4>Backups del servidor</h4>
-    <div>
-      <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
-        <svg class="ic"><use href="#i-upload"/></svg> Backup completo
-      </button>
-      <button class="btn btn-info" data-post="<?= url('backup/db') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup de todas las bases de datos de usuario?">
-        <svg class="ic"><use href="#i-database"/></svg> Backup BD
-      </button>
-    </div>
+    <?php if ($isAdmin): ?>
+      <div>
+        <button class="btn btn-primary" data-post="<?= url('backup') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup completo (archivos + carpetas + bases de datos)?">
+          <svg class="ic"><use href="#i-upload"/></svg> Backup completo
+        </button>
+        <button class="btn btn-info" data-post="<?= url('backup/db') ?>" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear un backup de todas las bases de datos de usuario?">
+          <svg class="ic"><use href="#i-database"/></svg> Backup BD
+        </button>
+      </div>
+    <?php endif; ?>
   </div>
   <?php if (!empty($backups)): ?>
     <div class="table-wrap">
@@ -37,7 +39,11 @@
       </table>
     </div>
   <?php else: ?>
-    <p class="muted">Aún no hay backups. Pulsa <b>Backup completo</b> o <b>Backup BD</b> para generar uno. Cuando termine, aparecerá aquí.</p>
+    <?php if ($isAdmin): ?>
+      <p class="muted">Aún no hay backups. Pulsa <b>Backup completo</b> o <b>Backup BD</b> para generar uno. Cuando termine, aparecerá aquí.</p>
+    <?php else: ?>
+      <p class="muted">Aún no hay backups. Puedes generar uno desde la sección <b>Bases de datos</b> o desde <b>Uso de disco</b>.</p>
+    <?php endif; ?>
   <?php endif; ?>
   <p class="muted mt-1">Los backups se guardan en <code><?= e(env('BACKUP_DIR', '/var/backups/miserver')) ?></code>. El progreso lo ves en <a href="<?= url('jobs') ?>">Tareas</a>.</p>
 </section>

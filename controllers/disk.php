@@ -2,10 +2,33 @@
 
 declare(strict_types=1);
 
+function disk_is_admin(array $u): bool
+{
+    return ($u['role'] ?? '') === 'admin';
+}
+
+/** Comprueba si un backup con ese nombre pertenece al usuario logueado. */
+function disk_backup_belongs_to_user(string $name, array $u): bool
+{
+    if (disk_is_admin($u)) {
+        return true;
+    }
+    $user = preg_quote($u['user'] ?? '', '/');
+    // Backups de carpetas / home propios: bk-<usuario>-<carpeta>-<ts>.tar.gz
+    if (preg_match('/^bk-' . $user . '-.+\.tar\.gz$/', $name)) {
+        return true;
+    }
+    // Backups individuales de bases propias: bk-<ts>-db-<usuario>_<bd>.sql.gz
+    if (preg_match('/^bk-.+-db-' . $user . '_[a-z0-9_]+\.sql\.gz$/', $name)) {
+        return true;
+    }
+    return false;
+}
+
 function ctrl_disk_index(): void
 {
     $u = require_login();
-    $isAdmin = ($u['role'] ?? '') === 'admin';
+    $isAdmin = disk_is_admin($u);
     $users = [];
     if ($isAdmin) {
         $r = ctl_run(['du:users']);
@@ -29,12 +52,14 @@ function ctrl_disk_index(): void
     if (!$diskTotal && !empty($partitions)) {
         $diskTotal = $partitions[0];
     }
+    $allBackups = disk_parse_backups($info['backups']['raw'] ?? '');
+    $backups = array_values(array_filter($allBackups, static fn($b) => disk_backup_belongs_to_user($b['name'], $u)));
     render('disk/index', [
         'title' => 'Backups',
         'active' => 'disk',
         'isAdmin' => $isAdmin,
         'users' => $users,
-        'backups' => disk_parse_backups($info['backups']['raw'] ?? ''),
+        'backups' => $backups,
         'disk_total' => $diskTotal,
         'memory' => parse_memory($info['disk']['raw'] ?? ''),
         'load' => parse_load($info['disk']['raw'] ?? ''),
@@ -176,20 +201,20 @@ function ctrl_disk_backup(): void
     respond(true, 'Backup de ' . $target . ' en curso. Se verá en la lista de backups cuando termine.', url('disk'));
 }
 
-/** Backup completo: homes + bases de datos. */
+/** Backup completo: homes + bases de datos (solo admin). */
 function ctrl_disk_backup_all(): void
 {
-    $u = require_login();
+    $u = require_admin();
     csrf_check();
     $jid = job_create('backup', 'todo el servidor', (int) $u['id']);
     job_spawn($jid, ['backup:run']);
     respond(true, 'Backup completo en curso. Cuando termine podrás descargarlo desde Backups.', url('disk'));
 }
 
-/** Backup de todas las bases de datos de usuario. */
+/** Backup de todas las bases de datos de usuario (solo admin). */
 function ctrl_disk_backup_db(): void
 {
-    $u = require_login();
+    $u = require_admin();
     csrf_check();
     $jid = job_create('backup', 'bases de datos', (int) $u['id']);
     job_spawn($jid, ['backup:db']);
@@ -216,11 +241,14 @@ function ctrl_disk_backup_db_one(): void
 /** Descarga un backup existente. */
 function ctrl_disk_download(): void
 {
-    require_login();
+    $u = require_login();
     $f = query('f', '');
     $dir = rtrim(env('BACKUP_DIR', '/var/backups/miserver'), '/');
     if ($f === '' || !preg_match('/^[a-zA-Z0-9._-]+\.(tar\.gz|sql\.gz|gz)$/', $f)) {
         respond(false, 'Archivo no válido.');
+    }
+    if (!disk_backup_belongs_to_user($f, $u)) {
+        respond(false, 'No puedes descargar este backup.');
     }
     $full = $dir . '/' . $f;
     $real = realpath($full);
@@ -240,11 +268,14 @@ function ctrl_disk_download(): void
 /** Elimina un backup existente. */
 function ctrl_disk_backup_delete(): void
 {
-    require_login();
+    $u = require_login();
     csrf_check();
     $f = query('f', '');
     if ($f === '' || !preg_match('/^[a-zA-Z0-9._-]+\.(tar\.gz|sql\.gz|gz)$/', $f)) {
         respond(false, 'Archivo no válido.');
+    }
+    if (!disk_backup_belongs_to_user($f, $u)) {
+        respond(false, 'No puedes eliminar este backup.');
     }
     $r = ctl_run(['backup:del', $f]);
     if ($r['exit'] !== 0) {
