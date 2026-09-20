@@ -1134,7 +1134,7 @@ case "$cmd" in
       dbs="$dbs $db"
     done < <(msql --batch --skip-column-names -e 'SHOW DATABASES' 2>"$LOG_DIR/backup-db.log" || true)
     if [ -n "$dbs" ]; then
-      mysqldump --protocol=socket --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
+      mysqldump --protocol=socket --single-transaction --routines --triggers --databases $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
     fi
     chown root:miserver "${prefix}"* 2>/dev/null || true
     chmod 0640 "${prefix}"* 2>/dev/null || true
@@ -1146,7 +1146,7 @@ case "$cmd" in
     exit 0
     ;;
 
-  # --- Backup de bases de datos (solo BD de usuarios) -----------------------
+  # --- Backup de bases de datos (un archivo comprimido por cada BD) ----------
   backup:db)
     save_dir="${BACKUP_DIR:-/var/backups/miserver}"
     mkdir -p "$save_dir" 2>/dev/null || { echo "no se puede crear $save_dir"; exit 0; }
@@ -1156,22 +1156,28 @@ case "$cmd" in
     prefix="$save_dir/bk-${ts}"
     log "backup:db -> $prefix"
     rc_db=0
-    dbs=""
+    generated=0
     while IFS= read -r db; do
       case "$db" in information_schema|performance_schema|mysql|sys|miserver) continue;; esac
-      dbs="$dbs $db"
+      [ -n "$db" ] || continue
+      out="${prefix}-db-${db}.sql.gz"
+      echo "[backup:db] respaldando $db ..."
+      if mysqldump --protocol=socket --single-transaction --routines --triggers --databases "$db" 2>"$LOG_DIR/backup-db-${db}.log" | gzip -9 > "$out"; then
+        chown root:miserver "$out" 2>/dev/null || true
+        chmod 0640 "$out" 2>/dev/null || true
+        generated=$((generated + 1))
+      else
+        rc_db=$?
+        echo "aviso: no se pudo respaldar la base $db (rc=$rc_db); log: $LOG_DIR/backup-db-${db}.log" >&2
+      fi
     done < <(msql --batch --skip-column-names -e 'SHOW DATABASES' 2>"$LOG_DIR/backup-db.log" || true)
-    if [ -n "$dbs" ]; then
-      mysqldump --protocol=socket --single-transaction --routines --triggers $dbs 2>"$LOG_DIR/backup-db.log" | gzip -9 > "${prefix}-db.sql.gz" || rc_db=$?
-    else
-      echo "aviso: no hay bases de datos de usuario para respaldar" >&2
+    if [ "$generated" -eq 0 ]; then
+      echo "error: no se genero ningun backup de base de datos" >&2
+      exit 1
     fi
-    chown root:miserver "${prefix}"* 2>/dev/null || true
-    chmod 0640 "${prefix}"* 2>/dev/null || true
     echo "bk-${ts}"
-    [ $rc_db -eq 0 ] || echo "aviso: la copia de bases de datos fallo rc=$rc_db (log: $LOG_DIR/backup-db.log)"
-    ls -1 "${prefix}"* 2>/dev/null | sed "s#^$save_dir/##" || true
-    [ -e "${prefix}-db.sql.gz" ] || die "el backup no genero archivos"
+    [ $rc_db -eq 0 ] || echo "aviso: algunas bases de datos fallaron (log: $LOG_DIR/backup-db-*.log)" >&2
+    ls -1 "${prefix}"-db-*.sql.gz 2>/dev/null | sed "s#^$save_dir/##" || true
     exit 0
     ;;
 
