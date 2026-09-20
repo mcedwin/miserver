@@ -306,6 +306,48 @@ function parse_disk_partitions(string $raw): array
     return $rows;
 }
 
+/** Parsea lineas "mem|total|used|free" (valores en MB). */
+function parse_memory(string $raw): array
+{
+    $out = ['total_mb' => 0, 'used_mb' => 0, 'free_mb' => 0];
+    foreach (preg_split('/\r?\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '' || strncmp($line, 'mem|', 4) !== 0) {
+            continue;
+        }
+        $p = explode('|', $line);
+        if (count($p) < 4) {
+            continue;
+        }
+        $out['total_mb'] = (int) $p[1];
+        $out['used_mb'] = (int) $p[2];
+        $out['free_mb'] = (int) $p[3];
+        break;
+    }
+    return $out;
+}
+
+/** Parsea lineas "load|1m|5m|15m". */
+function parse_load(string $raw): array
+{
+    $out = ['1m' => 0.0, '5m' => 0.0, '15m' => 0.0];
+    foreach (preg_split('/\r?\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '' || strncmp($line, 'load|', 5) !== 0) {
+            continue;
+        }
+        $p = explode('|', $line);
+        if (count($p) < 4) {
+            continue;
+        }
+        $out['1m'] = (float) $p[1];
+        $out['5m'] = (float) $p[2];
+        $out['15m'] = (float) $p[3];
+        break;
+    }
+    return $out;
+}
+
 /** Formata KB a una unidad legible (GB/TB/MB). */
 function format_size_kb(int $kb): string
 {

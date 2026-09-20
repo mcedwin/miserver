@@ -44,6 +44,61 @@
 
 <section class="card mb-1">
   <div class="section-header">
+    <h4>Estado del servidor</h4>
+  </div>
+  <div class="grid-cards" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+    <?php if (!empty($disk_total)): ?>
+      <?php
+        $dpct = (int) ($disk_total['use_percent'] ?? 0);
+        $dbar = $dpct >= 90 ? 'err' : ($dpct >= 75 ? 'warn' : '');
+      ?>
+      <div class="card stat">
+        <div class="stat-lbl">Disco <?= e($disk_total['mount']) ?></div>
+        <div class="stat-val" style="font-size:1.6rem"><?= $dpct ?>%</div>
+        <div class="disk-bar <?= $dbar ?>"><div style="width:<?= min(100, $dpct) ?>%"></div></div>
+        <div class="muted" style="font-size:.8rem">
+          <?= e(format_size_kb((int) ($disk_total['used_kb'] ?? 0))) ?> /
+          <?= e(format_size_kb((int) ($disk_total['size_kb'] ?? 0))) ?> ·
+          libre <?= e(format_size_kb((int) ($disk_total['avail_kb'] ?? 0))) ?>
+        </div>
+      </div>
+    <?php endif; ?>
+
+    <?php if (($memory['total_mb'] ?? 0) > 0): ?>
+      <?php
+        $mused = (int) ($memory['used_mb'] ?? 0);
+        $mtotal = (int) ($memory['total_mb'] ?? 0);
+        $mpct = $mtotal > 0 ? (int) round(($mused / $mtotal) * 100) : 0;
+        $mbar = $mpct >= 90 ? 'err' : ($mpct >= 75 ? 'warn' : '');
+      ?>
+      <div class="card stat">
+        <div class="stat-lbl">Memoria</div>
+        <div class="stat-val" style="font-size:1.6rem"><?= $mpct ?>%</div>
+        <div class="disk-bar <?= $mbar ?>"><div style="width:<?= min(100, $mpct) ?>%"></div></div>
+        <div class="muted" style="font-size:.8rem">
+          <?= e(format_size_kb($mused * 1024)) ?> /
+          <?= e(format_size_kb($mtotal * 1024)) ?> ·
+          libre <?= e(format_size_kb(((int) ($memory['free_mb'] ?? 0)) * 1024)) ?>
+        </div>
+      </div>
+    <?php endif; ?>
+
+    <?php if (($load['1m'] ?? 0) > 0 || ($load['5m'] ?? 0) > 0): ?>
+      <div class="card stat">
+        <div class="stat-lbl">Carga CPU</div>
+        <div class="stat-val" style="font-size:1.4rem"><?= number_format((float) ($load['1m'] ?? 0), 2) ?></div>
+        <div class="muted" style="font-size:.8rem">
+          1m: <?= number_format((float) ($load['1m'] ?? 0), 2) ?> ·
+          5m: <?= number_format((float) ($load['5m'] ?? 0), 2) ?> ·
+          15m: <?= number_format((float) ($load['15m'] ?? 0), 2) ?>
+        </div>
+      </div>
+    <?php endif; ?>
+  </div>
+</section>
+
+<section class="card mb-1">
+  <div class="section-header">
     <h4>Uso de disco</h4>
   </div>
   <?php if ($isAdmin): ?>

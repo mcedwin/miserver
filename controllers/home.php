@@ -28,7 +28,6 @@ function ctrl_home_index(): void
         'sites' => $sites,
         'info' => $info,
         'homes' => parse_pipe_lines($info['homes']['raw'] ?? ''),
-        'partitions' => parse_disk_partitions($info['partitions']['raw'] ?? ''),
         'jobs' => db_all("SELECT id, kind, target, status, created_at FROM job ORDER BY id DESC LIMIT 6"),
     ];
     render('home/index', $data);

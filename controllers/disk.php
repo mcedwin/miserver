@@ -18,12 +18,26 @@ function ctrl_disk_index(): void
         usort($users, static fn($a, $b) => $b['bytes'] <=> $a['bytes']);
     }
     $info = sys_info();
+    $partitions = parse_disk_partitions($info['partitions']['raw'] ?? '');
+    $diskTotal = null;
+    foreach ($partitions as $part) {
+        if (($part['mount'] ?? '') === '/') {
+            $diskTotal = $part;
+            break;
+        }
+    }
+    if (!$diskTotal && !empty($partitions)) {
+        $diskTotal = $partitions[0];
+    }
     render('disk/index', [
         'title' => 'Backups',
         'active' => 'disk',
         'isAdmin' => $isAdmin,
         'users' => $users,
         'backups' => disk_parse_backups($info['backups']['raw'] ?? ''),
+        'disk_total' => $diskTotal,
+        'memory' => parse_memory($info['disk']['raw'] ?? ''),
+        'load' => parse_load($info['disk']['raw'] ?? ''),
     ]);
 }
 
