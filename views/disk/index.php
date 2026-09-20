@@ -50,7 +50,7 @@
     <div class="table-wrap">
       <table class="table">
         <thead>
-          <tr><th>Cuenta</th><th>Base de datos</th><th>Tablas</th><th>Tamaño</th></tr>
+          <tr><th>Cuenta</th><th>Base de datos</th><th>Tablas</th><th>Tamaño</th><th></th></tr>
         </thead>
         <tbody>
           <?php foreach ($db_by_user as $g): ?>
@@ -64,6 +64,9 @@
                 <td class="mono"><?= e($db['full']) ?></td>
                 <td class="muted"><?= (int) $db['tables'] ?></td>
                 <td><?= e(format_size_kb($db['size_kb'])) ?></td>
+                <td class="actions">
+                  <button class="btn btn-xs" data-csrf="<?= csrf_token() ?>" data-confirm="¿Crear backup de <?= e($db['full']) ?>?" data-post="<?= url('backup/dbone') ?>" data-extra-db="<?= e($db['full']) ?>">Backup</button>
+                </td>
               </tr>
             <?php endforeach; ?>
           <?php endforeach; ?>

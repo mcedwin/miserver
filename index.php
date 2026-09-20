@@ -15,6 +15,7 @@ $ROUTES = [
     ['GET',  '/download',           ['disk',    'download']],
     ['POST', '/backup',             ['disk',    'backup_all']],
     ['POST', '/backup/db',          ['disk',    'backup_db']],
+    ['POST', '/backup/dbone',       ['disk',    'backup_db_one']],
     ['POST', '/backup/delete',      ['disk',    'backup_delete']],
     ['GET',  '/login',              ['login',   'login']],
     ['POST', '/login',              ['login',   'attempt']],

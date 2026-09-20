@@ -1181,6 +1181,32 @@ case "$cmd" in
     exit 0
     ;;
 
+  # --- Backup de una base de datos concreta ---------------------------------
+  backup:dbone)
+    [ $# -eq 1 ] || die "backup:dbone <base-de-datos>"
+    db="$1"
+    case "$db" in
+      information_schema|performance_schema|mysql|sys|miserver) die "base de datos reservada" ;;
+    esac
+    [[ "$db" =~ ^[a-z][a-z0-9_]{2,31}_[a-z0-9_]{1,64}$ ]] || die "nombre de base de datos no valido"
+    save_dir="${BACKUP_DIR:-/var/backups/miserver}"
+    mkdir -p "$save_dir" 2>/dev/null || { echo "no se puede crear $save_dir"; exit 0; }
+    chown root:miserver "$save_dir" 2>/dev/null || true
+    chmod 0750 "$save_dir" 2>/dev/null || true
+    ts="$(date +%Y%m%d-%H%M%S)"
+    out="$save_dir/bk-${ts}-db-${db}.sql.gz"
+    log "backup:dbone $db -> $out"
+    if mysqldump --protocol=socket --single-transaction --routines --triggers --databases "$db" 2>"$LOG_DIR/backup-db-${db}.log" | gzip -9 > "$out"; then
+      chown root:miserver "$out" 2>/dev/null || true
+      chmod 0640 "$out" 2>/dev/null || true
+      size="$(stat -c %s "$out" 2>/dev/null || echo 0)"
+      printf 'file|%s|%s|%s\n' "$size" "$(date '+%Y-%m-%d %H:%M')" "$(basename "$out")"
+    else
+      echo "error: no se pudo respaldar la base $db (log: $LOG_DIR/backup-db-${db}.log)" >&2
+      exit 2
+    fi
+    ;;
+
   # --- Backup por carpeta (homes / cualquier subcarpeta) --------------------
   backup:folder)
     [ $# -eq 2 ] || die "backup:folder <usuario> <ruta-relativa>"

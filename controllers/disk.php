@@ -196,6 +196,23 @@ function ctrl_disk_backup_db(): void
     respond(true, 'Backup de bases de datos en curso. Cuando termine podrás descargarlo desde Backups.', url('disk'));
 }
 
+/** Backup de una base de datos concreta. */
+function ctrl_disk_backup_db_one(): void
+{
+    $u = require_login();
+    csrf_check();
+    $db = trim((string) post('db', ''));
+    if (!preg_match('/^[a-z][a-z0-9_]{2,31}_[a-z0-9_]{1,64}$/', $db)) {
+        respond(false, 'Base de datos no válida.');
+    }
+    if (($u['role'] ?? '') !== 'admin' && strncmp($db, ($u['user'] ?? '') . '_', strlen((string) ($u['user'] ?? '')) + 1) !== 0) {
+        respond(false, 'No puedes hacer backup de bases de datos ajenas.');
+    }
+    $jid = job_create('backup', 'BD ' . $db, (int) $u['id']);
+    job_spawn($jid, ['backup:dbone', $db]);
+    respond(true, 'Backup de ' . $db . ' en curso. Cuando termine podrás descargarlo desde Backups.', url('disk'));
+}
+
 /** Descarga un backup existente. */
 function ctrl_disk_download(): void
 {
