@@ -44,6 +44,39 @@
 
 <section class="card mb-1">
   <div class="section-header">
+    <h4>Bases de datos</h4>
+  </div>
+  <?php if (!empty($db_by_user)): ?>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th>Cuenta</th><th>Base de datos</th><th>Tablas</th><th>Tamaño</th></tr>
+        </thead>
+        <tbody>
+          <?php foreach ($db_by_user as $g): ?>
+            <?php $first = true; ?>
+            <?php foreach ($g['dbs'] as $db): ?>
+              <tr>
+                <?php if ($first): ?>
+                  <td rowspan="<?= count($g['dbs']) ?>"><strong><?= e($g['user']) ?></strong><br><span class="muted"><?= e(format_size_kb($g['total_kb'])) ?></span></td>
+                  <?php $first = false; ?>
+                <?php endif; ?>
+                <td class="mono"><?= e($db['full']) ?></td>
+                <td class="muted"><?= (int) $db['tables'] ?></td>
+                <td><?= e(format_size_kb($db['size_kb'])) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  <?php else: ?>
+    <p class="muted">No se detectaron bases de datos de usuario.</p>
+  <?php endif; ?>
+</section>
+
+<section class="card mb-1">
+  <div class="section-header">
     <h4>Estado del servidor</h4>
   </div>
   <div class="grid-cards" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">

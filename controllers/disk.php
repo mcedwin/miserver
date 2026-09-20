@@ -38,7 +38,47 @@ function ctrl_disk_index(): void
         'disk_total' => $diskTotal,
         'memory' => parse_memory($info['disk']['raw'] ?? ''),
         'load' => parse_load($info['disk']['raw'] ?? ''),
+        'db_by_user' => disk_db_sizes_by_user($u, $info['disk']['raw'] ?? ''),
     ]);
+}
+
+/** Agrupa las bases de datos devueltas por sys:info bajo cada cuenta de usuario. */
+function disk_db_sizes_by_user(array $u, string $raw): array
+{
+    $isAdmin = ($u['role'] ?? '') === 'admin';
+    $panelUsers = $isAdmin ? users_for_select() : [db_one('SELECT id, user FROM user WHERE id = ?', [(int) $u['id']]) ?: ['id' => 0, 'user' => $u['user'] ?? '']];
+    usort($panelUsers, static fn($a, $b) => strlen((string) $b['user']) <=> strlen((string) $a['user']));
+    $dbSizes = parse_db_sizes($raw);
+    $byUser = [];
+    foreach ($panelUsers as $usr) {
+        $byUser[(string) $usr['user']] = [];
+    }
+    foreach ($dbSizes as $db) {
+        foreach ($panelUsers as $usr) {
+            $prefix = $usr['user'] . '_';
+            if (strncmp($db['name'], $prefix, strlen($prefix)) === 0) {
+                $byUser[(string) $usr['user']][] = [
+                    'name' => substr($db['name'], strlen($prefix)),
+                    'full' => $db['name'],
+                    'size_kb' => $db['size_kb'],
+                    'tables' => $db['tables'],
+                ];
+                break;
+            }
+        }
+    }
+    // Dejar solo usuarios con bases y ordenar por tamaño total descendente.
+    $result = [];
+    foreach ($byUser as $user => $dbs) {
+        if ($dbs === []) {
+            continue;
+        }
+        usort($dbs, static fn($a, $b) => $b['size_kb'] <=> $a['size_kb']);
+        $total = array_sum(array_column($dbs, 'size_kb'));
+        $result[] = ['user' => $user, 'total_kb' => $total, 'dbs' => $dbs];
+    }
+    usort($result, static fn($a, $b) => $b['total_kb'] <=> $a['total_kb']);
+    return $result;
 }
 
 /** Admin puede operar sobre cualquier usuario; el resto solo sobre el suyo. */
@@ -53,10 +93,11 @@ function disk_resolve_user(array $u, string $postUser): string
     return (string) ($u['user'] ?? '');
 }
 
-/** Mismas reglas que vrel() del wrapper: sin '..', sin '/', sin control. */
+/** Mismas reglas que vrel() del wrapper: sin '..', sin absoluta, sin control; subcarpetas permitidas. */
 function disk_valid_rel(string $rel): string
 {
-    if (strlen($rel) > 255 || strpos($rel, '..') !== false || preg_match('{[\\\\/\x00-\x1f]}', $rel)) {
+    $rel = trim(str_replace('\\', '/', $rel), '/');
+    if ($rel !== '' && !relpath_ok($rel)) {
         json_out(['ok' => false, 'msg' => 'Ruta no válida.']);
     }
     return $rel;

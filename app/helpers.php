@@ -348,6 +348,28 @@ function parse_load(string $raw): array
     return $out;
 }
 
+/** Parsea lineas "db|nombre|tamaño_kb|tablas" devueltas por sys:info. */
+function parse_db_sizes(string $raw): array
+{
+    $rows = [];
+    foreach (preg_split('/\r?\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '' || strncmp($line, 'db|', 3) !== 0) {
+            continue;
+        }
+        $p = explode('|', $line);
+        if (count($p) < 4) {
+            continue;
+        }
+        $rows[] = [
+            'name' => $p[1],
+            'size_kb' => (int) $p[2],
+            'tables' => (int) $p[3],
+        ];
+    }
+    return $rows;
+}
+
 /** Formata KB a una unidad legible (GB/TB/MB). */
 function format_size_kb(int $kb): string
 {
