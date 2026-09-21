@@ -30,8 +30,8 @@
 
       <div class="form-row">
         <label for="f_folder">Carpeta dentro del home</label>
-        <input class="form-control" id="f_folder" name="folder" value="<?= e((string)($row['folder'] ?? '')) ?>" <?= $row ? 'readonly' : 'required' ?> placeholder="mi-app">
-        <?php if ($row): ?><span class="muted" style="font-size:.8rem">No se puede mover la carpeta desde el panel.</span><?php endif; ?>
+        <input class="form-control" id="f_folder" name="folder" value="<?= e((string)($row['folder'] ?? '')) ?>" <?= $row ? 'readonly' : 'required' ?> placeholder="mi-app o miweb/blog">
+        <?php if ($row): ?><span class="muted" style="font-size:.8rem">No se puede mover la carpeta desde el panel.</span><?php else: ?><span class="muted" style="font-size:.8rem">Permite subcarpetas, p. ej. <code>miweb/blog</code> para instalar la app dentro de una web existente.</span><?php endif; ?>
       </div>
 
       <div class="form-row">

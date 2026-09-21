@@ -365,7 +365,7 @@ function app_validate_input(bool $requireFolder = true): array
     if ($requireFolder && $folder === '') {
         respond(false, 'La carpeta es obligatoria.');
     }
-    if ($folder !== '' && !preg_match(RE_FOLDER, $folder)) {
+    if ($folder !== '' && !relpath_ok($folder)) {
         respond(false, 'Carpeta no válida.');
     }
     foreach (explode('/', $folder) as $seg) {
