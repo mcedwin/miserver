@@ -58,9 +58,12 @@ function db_ensure_domain_columns(): void
             'git_url'       => "ALTER TABLE `domain` ADD COLUMN `git_url` varchar(500) NOT NULL DEFAULT '' AFTER `project_type`",
             'git_branch'    => "ALTER TABLE `domain` ADD COLUMN `git_branch` varchar(100) NOT NULL DEFAULT 'main' AFTER `git_url`",
             'project_path'  => "ALTER TABLE `domain` ADD COLUMN `project_path` varchar(255) NOT NULL DEFAULT '' AFTER `git_branch`",
-            'document_root' => "ALTER TABLE `domain` ADD COLUMN `document_root` varchar(255) NOT NULL DEFAULT '' AFTER `project_path`",
-            'php_version'   => "ALTER TABLE `domain` ADD COLUMN `php_version` varchar(10) NOT NULL DEFAULT '' AFTER `document_root`",
-            'git_token'     => "ALTER TABLE `domain` ADD COLUMN `git_token` varchar(500) NOT NULL DEFAULT '' AFTER `php_version`",
+            'document_root'  => "ALTER TABLE `domain` ADD COLUMN `document_root` varchar(255) NOT NULL DEFAULT '' AFTER `project_path`",
+            'php_version'    => "ALTER TABLE `domain` ADD COLUMN `php_version` varchar(10) NOT NULL DEFAULT '' AFTER `document_root`",
+            'php_upload_max' => "ALTER TABLE `domain` ADD COLUMN `php_upload_max` varchar(10) NOT NULL DEFAULT '' AFTER `php_version`",
+            'php_post_max'   => "ALTER TABLE `domain` ADD COLUMN `php_post_max` varchar(10) NOT NULL DEFAULT '' AFTER `php_upload_max`",
+            'php_memory_limit' => "ALTER TABLE `domain` ADD COLUMN `php_memory_limit` varchar(10) NOT NULL DEFAULT '' AFTER `php_post_max`",
+            'git_token'      => "ALTER TABLE `domain` ADD COLUMN `git_token` varchar(500) NOT NULL DEFAULT '' AFTER `php_memory_limit`",
         ];
         foreach ($adds as $col => $sql) {
             if (!in_array($col, $cols, true)) {

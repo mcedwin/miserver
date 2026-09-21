@@ -32,6 +32,22 @@
         <input class="form-control" id="f_php" name="php_version" value="<?= e((string)($row['php_version'] ?? '')) ?>" placeholder="vacío = PHP del sistema">
       </div>
     </div>
+    <h4 class="mt-1">Límites PHP</h4>
+    <p class="muted" style="font-size:.8rem">Se escribe un <code>.user.ini</code> en el DocumentRoot. Vacío = usar el valor por defecto del servidor.</p>
+    <div class="grid-3">
+      <div class="form-row">
+        <label for="f_up">upload_max_filesize</label>
+        <input class="form-control" id="f_up" name="php_upload_max" value="<?= e((string)($row['php_upload_max'] ?? '')) ?>" placeholder="ej: 64M">
+      </div>
+      <div class="form-row">
+        <label for="f_pm">post_max_size</label>
+        <input class="form-control" id="f_pm" name="php_post_max" value="<?= e((string)($row['php_post_max'] ?? '')) ?>" placeholder="ej: 80M">
+      </div>
+      <div class="form-row">
+        <label for="f_ml">memory_limit</label>
+        <input class="form-control" id="f_ml" name="php_memory_limit" value="<?= e((string)($row['php_memory_limit'] ?? '')) ?>" placeholder="ej: 128M">
+      </div>
+    </div>
     <div class="row-form mt-1">
       <button class="btn btn-primary" type="submit">Guardar</button>
     </div>

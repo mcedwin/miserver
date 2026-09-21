@@ -110,8 +110,22 @@ const RE_FOLDER   = '/^(?!\.)(?!.*\.\.)[^\/\x00-\x1f]{1,255}$/'; // sin /, sin .
 const RE_GITURL    = '/^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(\.[a-z]{2,})+(\/[a-z0-9._~!$&()*+,;=:@%\-]+)+$/i';
 const RE_GITBRANCH = '/^[a-z0-9][a-z0-9._\/-]{0,99}$/i';
 const RE_PHPVER    = '/^[0-9]+\.[0-9]+$/';
+// Límites PHP (upload_max_filesize, post_max_size, memory_limit): número + K/M/G opcional.
+const RE_PHPSIZE   = '/^[0-9]+[KMG]?$/i';
 // Token para repos privados (GitHub PAT / HTTP): juego seguro y acotado.
 const RE_GITTOKEN  = '/^[A-Za-z0-9._:-]{8,500}$/';
+
+/**
+ * Valida un límite PHP (ej: 64M, 512M, 2G). Vacío es válido (heredar del sistema).
+ */
+function valid_php_size(string $value, string $label): string
+{
+    $value = trim($value);
+    if ($value !== '' && !preg_match(RE_PHPSIZE, $value)) {
+        respond(false, $label . ' no válido (ej: 64M, 512M, 2G).');
+    }
+    return $value;
+}
 
 /**
  * Valida una ruta relativa (proyecto dentro del repo o DocumentRoot respecto al home):

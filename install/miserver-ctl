@@ -76,6 +76,7 @@ vrel() {
 re_url='^https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z]{2,})+(/[a-z0-9._~!$&()*+,;=:@%-]+)+$'
 re_branch='^[a-z0-9][a-z0-9._/-]{0,99}$'
 re_ver='^[0-9]+\.[0-9]+$'
+re_phpsize='^[0-9]+[KMGkmg]?$'
 
 vurl() {
   [ $# -ge 1 ] || die "URL vacia"
@@ -84,6 +85,7 @@ vurl() {
 }
 vbranch() { [ $# -ge 1 ] || die "rama invalida"; [[ "$1" =~ $re_branch ]] || die "rama invalida"; }
 vver()    { [ $# -ge 1 ] || die "version PHP invalida"; [ -z "$1" ] && return 0; [[ "$1" =~ $re_ver ]] || die "version PHP invalida"; }
+vphpsize(){ [ $# -ge 1 ] || die "limite PHP invalido"; [ -z "$1" ] && return 0; [[ "${1^^}" =~ $re_phpsize ]] || die "limite PHP invalido"; }
 # Token para repos privados (GitHub PAT / tokens HTTP): juego seguro, sin
 # espacios ni caracteres que rompan el credential-helper temporal.
 re_token='^[A-Za-z0-9._:-]{8,500}$'
@@ -324,6 +326,24 @@ vhost_conf() { # $1=usuario $2=dominio $3=folder $4=document_root $5=php_version
   ln -sf "/etc/apache2/sites-available/$d.conf" "/etc/apache2/sites-enabled/$d.conf"
 }
 
+# Escribe (o borra) /home/<u>/<docroot>/.user.ini con los límites PHP pedidos.
+# Funciona tanto con mod_php como con PHP-FPM; no requiere reiniciar servicios.
+php_user_ini() { # $1=usuario $2=document_root $3=upload_max $4=post_max $5=memory_limit
+  local u="$1" dr="$2" up="$3" pm="$4" ml="$5" ini="/home/$u/$dr/.user.ini"
+  if [ -z "$up" ] && [ -z "$pm" ] && [ -z "$ml" ]; then
+    rm -f "$ini"
+    return 0
+  fi
+  fs_check "$u" "$dr"
+  mkdir -p "$(dirname "$ini")"
+  : > "$ini"
+  [ -n "$up" ] && printf 'upload_max_filesize = %s\n' "$up" >> "$ini"
+  [ -n "$pm" ] && printf 'post_max_size = %s\n' "$pm" >> "$ini"
+  [ -n "$ml" ] && printf 'memory_limit = %s\n' "$ml" >> "$ini"
+  fchown "$u" "$ini"
+  chmod 644 "$ini"
+}
+
 # ¿El vhost $1 es el del panel (DocumentRoot=/home/miserver/panel)?
 is_panel_vhost() {
   [ -f "/etc/apache2/sites-available/$1.conf" ] \
@@ -333,11 +353,11 @@ is_panel_vhost() {
 # Garantiza un vhost para $d apuntando a la carpeta pedida. Solo se respeta el
 # vhost del panel; cualquier otra conf (aunque exista de antes) se reescribe para
 # que nunca sirva la carpeta equivocada de otro dominio.
-vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_version]
-  local u="$1" d="$2" f="$3" dr="${4:-}" pv="${5:-}"
+vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_version] [$6=upload_max] [$7=post_max] [$8=memory_limit]
+  local u="$1" d="$2" f="$3" dr="${4:-}" pv="${5:-}" up="${6:-}" pm="${7:-}" ml="${8:-}"
   vuser "$u"; vdom "$d"; vrel "$f"
   if [ -n "$dr" ]; then vrel "$dr"; fi
-  vver "$pv"
+  vver "$pv"; vphpsize "$up"; vphpsize "$pm"; vphpsize "$ml"
   # Asegura primero el fallback para no dejar que este dominio se convierta en
   # default server por accidente.
   vhost_fallback_ensure
@@ -346,6 +366,8 @@ vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_ve
     return
   fi
   vhost_conf "$u" "$d" "$f" "$dr" "$pv"
+  [ -n "$dr" ] || dr="$f"
+  php_user_ini "$u" "$dr" "$up" "$pm" "$ml"
 }
 
 # MySQL por socket (el wrapper corre como root durante la instalación)
@@ -578,12 +600,12 @@ case "$cmd" in
 
   # --- Vhosts / SSL ----------------------------------------------------------
   vhost:add)
-    [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder> [document_root] [php_version]"
-    u="$1"; d="$2"; f="$3"; dr="${4:-}"; pv="${5:-}"
+    [ $# -ge 3 ] || die "vhost:add <usuario> <dominio> <folder> [document_root] [php_version] [upload_max] [post_max] [memory_limit]"
+    u="$1"; d="$2"; f="$3"; dr="${4:-}"; pv="${5:-}"; up="${6:-}"; pm="${7:-}"; ml="${8:-}"
     vuser "$u"; vdom "$d"; vrel "$f"
     if [ -n "$dr" ]; then vrel "$dr"; else dr="$f"; fi
-    vver "$pv"
-    log "vhost:add $u $d $f [docroot=$dr] [php=$pv]"
+    vver "$pv"; vphpsize "$up"; vphpsize "$pm"; vphpsize "$ml"
+    log "vhost:add $u $d $f [docroot=$dr] [php=$pv] [up=$up] [pm=$pm] [ml=$ml]"
     ensure_linux_user "$u"
     base="/home/$u/$f"
     root="/home/$u/$dr"
@@ -593,7 +615,7 @@ case "$cmd" in
       printf '<h1>%s</h1>\n' "$d" > "$root/index.html"
     fi
     chown -R "$u:$u" "$base"
-    vhost_ensure "$u" "$d" "$f" "$dr" "$pv"
+    vhost_ensure "$u" "$d" "$f" "$dr" "$pv" "$up" "$pm" "$ml"
     prune_ssl_vhost "$d"
     apache_reload
     echo "DocumentRoot='/home/$u/$dr'"

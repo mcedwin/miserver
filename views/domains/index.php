@@ -63,7 +63,12 @@
           <?= e($d['folder']) ?>
         </td>
         <td class="mono"><?= e((string)($d['document_root'] ?: $d['folder'])) ?></td>
-        <td><?= e($d['php_version'] ?: 'sistema') ?></td>
+        <td>
+          <?= e($d['php_version'] ?: 'sistema') ?>
+          <?php if (!empty($d['php_upload_max']) || !empty($d['php_post_max']) || !empty($d['php_memory_limit'])): ?>
+            <span class="badge badge-sm badge-ok" title="Límites PHP personalizados">PHP lim</span>
+          <?php endif; ?>
+        </td>
         <td>
           <?php $ssi = $d['ssl_info'] ?? ['status' => 'missing', 'exp' => '', 'days' => 0]; ?>
           <button class="btn btn-xs <?= $d['ssl'] && ($ssi['status'] ?? '') === 'ok' ? 'btn-info' : 'btn-light' ?>" data-post="<?= url('domains/'.$d['id'].'/ssl') ?>" data-csrf="<?= csrf_token() ?>">

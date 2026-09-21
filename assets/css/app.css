@@ -91,6 +91,7 @@ h3{font-size:1.1rem}
 textarea.form-control{resize:vertical}
 .req{color:var(--err)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
 .check-line{display:flex;align-items:center;font-size:.9rem}
 select.form-control{width:auto}
 .inline-label .form-control{width:auto}
@@ -154,6 +155,7 @@ summary{cursor:pointer;font-size:.85rem;color:var(--brand)}
   .sidebar.open{left:0}
   .menu-toggle{display:block}
   .grid-2{grid-template-columns:1fr}
+  .grid-3{grid-template-columns:1fr}
   .row-form{flex-direction:column;align-items:stretch}
   .topbar-user{display:none}
 }

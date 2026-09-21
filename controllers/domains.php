@@ -27,6 +27,14 @@ function ctrl_domains_index(): void
     ]);
 }
 
+function domain_php_limits(): array
+{
+    $up = valid_php_size(post('php_upload_max', ''), 'upload_max_filesize');
+    $pm = valid_php_size(post('php_post_max', ''), 'post_max_size');
+    $ml = valid_php_size(post('php_memory_limit', ''), 'memory_limit');
+    return [$up, $pm, $ml];
+}
+
 function ctrl_domains_store(): void
 {
     $u = require_login();
@@ -55,6 +63,7 @@ function ctrl_domains_store(): void
     $folder = '';
     $documentRoot = '';
     $phpVersion = '';
+    [$phpUp, $phpPm, $phpMl] = domain_php_limits();
     if ($appId > 0) {
         $folder = $app['folder'];
         $appDocroot = (string) $app['document_root'];
@@ -81,12 +90,12 @@ function ctrl_domains_store(): void
         respond(false, 'Ese dominio ya está registrado.');
     }
 
-    db_run('INSERT INTO domain (user_id, app_id, domain, folder, document_root, php_version, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, ?, 0, 1)', [
-        $owner['id'], $appId ?: null, $domain, $folder, $documentRoot, $phpVersion,
+    db_run('INSERT INTO domain (user_id, app_id, domain, folder, document_root, php_version, php_upload_max, php_post_max, php_memory_limit, `ssl`, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1)', [
+        $owner['id'], $appId ?: null, $domain, $folder, $documentRoot, $phpVersion, $phpUp, $phpPm, $phpMl,
     ]);
     $id = (int) db_last_id();
 
-    $r = ctl_run(['vhost:add', $owner['user'], $domain, $folder, $documentRoot, $phpVersion]);
+    $r = ctl_run(['vhost:add', $owner['user'], $domain, $folder, $documentRoot, $phpVersion, $phpUp, $phpPm, $phpMl]);
     if ($r['exit'] !== 0) {
         domain_rollback($owner['user'], $folder, $domain, $id, 'Error al crear el vhost: ' . $r['out'], false);
     }
@@ -165,13 +174,14 @@ function ctrl_domains_update(array $p): void
     if ($phpVersion !== '' && !preg_match(RE_PHPVER, $phpVersion)) {
         respond(false, 'Versión de PHP no válida.');
     }
+    [$phpUp, $phpPm, $phpMl] = domain_php_limits();
 
     // Desvinculamos cualquier app heredada: los dominios ahora se configuran manualmente.
-    db_run('UPDATE domain SET app_id = NULL, folder = ?, document_root = ?, php_version = ? WHERE id = ?', [
-        $folder, $documentRoot, $phpVersion, (int) $p[0],
+    db_run('UPDATE domain SET app_id = NULL, folder = ?, document_root = ?, php_version = ?, php_upload_max = ?, php_post_max = ?, php_memory_limit = ? WHERE id = ?', [
+        $folder, $documentRoot, $phpVersion, $phpUp, $phpPm, $phpMl, (int) $p[0],
     ]);
 
-    $r = ctl_run(['vhost:add', $owner['user'], $row['domain'], $folder, $documentRoot, $phpVersion]);
+    $r = ctl_run(['vhost:add', $owner['user'], $row['domain'], $folder, $documentRoot, $phpVersion, $phpUp, $phpPm, $phpMl]);
     if ($r['exit'] !== 0) {
         respond(false, 'Configuración guardada pero no se pudo regenerar el vhost: ' . e($r['out']));
     }
