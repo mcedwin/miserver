@@ -52,7 +52,7 @@
         <td class="muted">—</td>
         <td class="muted"><?= $d['mtime'] ? e(date('Y-m-d H:i', (int)$d['mtime'])) : '' ?></td>
         <td class="actions">
-          <button class="btn btn-sm" data-prompt="Nuevo nombre para <?= e($d['name']) ?>:" data-post="<?= url('files/rename') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $d['name'] : $rel.'/'.$d['name']) ?>">Renombrar</button>
+          <button class="btn btn-sm" data-csrf="<?= csrf_token() ?>" data-prompt="Nuevo nombre para <?= e($d['name']) ?>:" data-post="<?= url('files/rename') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $d['name'] : $rel.'/'.$d['name']) ?>">Renombrar</button>
           <button class="btn btn-danger btn-sm" data-csrf="<?= csrf_token() ?>" data-confirm="¿Eliminar carpeta <?= e($d['name']) ?>/? (solo si está vacía)" data-post="<?= url('files/delete') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $d['name'] : $rel.'/'.$d['name']) ?>">Eliminar</button>
         </td>
       </tr>
@@ -63,7 +63,7 @@
         <td><?= e(bytes_human((int)$f['size'])) ?></td>
         <td class="muted"><?= $f['mtime'] ? e(date('Y-m-d H:i', (int)$f['mtime'])) : '' ?></td>
         <td class="actions">
-          <button class="btn btn-sm" data-prompt="Nuevo nombre para <?= e($f['name']) ?>:" data-post="<?= url('files/rename') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $f['name'] : $rel.'/'.$f['name']) ?>"><svg class="ic-sm"><use href="#i-edit"/></svg> Renombrar</button>
+          <button class="btn btn-sm" data-csrf="<?= csrf_token() ?>" data-prompt="Nuevo nombre para <?= e($f['name']) ?>:" data-post="<?= url('files/rename') ?>" data-extra-u="<?= (int)$ctx['id'] ?>" data-extra-p="<?= e($rel === '' ? $f['name'] : $rel.'/'.$f['name']) ?>"><svg class="ic-sm"><use href="#i-edit"/></svg> Renombrar</button>
           <?php if ($f['editable']): ?>
             <a class="btn btn-sm" href="<?= url('files/edit?u='.$ctx['id'].'&p='.urlencode($rel=== '' ? $f['name'] : $rel.'/'.$f['name'])) ?>"><svg class="ic-sm"><use href="#i-edit"/></svg> Editar</a>
           <?php endif; ?>
