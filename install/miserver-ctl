@@ -326,10 +326,63 @@ vhost_conf() { # $1=usuario $2=dominio $3=folder $4=document_root $5=php_version
   ln -sf "/etc/apache2/sites-available/$d.conf" "/etc/apache2/sites-enabled/$d.conf"
 }
 
+# Escribe (o actualiza) /home/<u>/<docroot>/.htaccess con los límites PHP.
+# Preserva el contenido existente (p. ej. reglas de WordPress) usando marcadores.
+# Con mod_php aplica inmediatamente; no requiere reiniciar Apache.
+php_htaccess() { # $1=usuario $2=document_root $3=upload_max $4=post_max $5=memory_limit
+  local u="$1" dr="$2" up="$3" pm="$4" ml="$5"
+  local ht="/home/$u/$dr/.htaccess"
+  local start="# BEGIN miserver-php-limits"
+  local end="# END miserver-php-limits"
+  fs_check "$u" "$dr"
+  mkdir -p "$(dirname "$ht")"
+
+  local existing=""
+  [ -f "$ht" ] && existing=$(cat "$ht")
+
+  # Eliminamos la sección anterior de miserver, si existe.
+  local cleaned="" in_section=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$line" = "$start" ] && { in_section=1; continue; }
+    [ "$line" = "$end" ] && { in_section=0; continue; }
+    [ "$in_section" = 0 ] && cleaned="$cleaned$line
+"
+  done <<EOF
+$existing
+EOF
+
+  # Sin límites: guardamos el .htaccess limpio y, si queda vacío, lo borramos.
+  if [ -z "$up" ] && [ -z "$pm" ] && [ -z "$ml" ]; then
+    printf '%s' "$cleaned" > "$ht"
+    [ -f "$ht" ] && [ ! -s "$ht" ] && rm -f "$ht"
+    [ -f "$ht" ] && { fchown "$u" "$ht" 2>/dev/null || true; chmod 644 "$ht" 2>/dev/null || true; }
+    return 0
+  fi
+
+  # Construimos la nueva sección.
+  local section="$start
+<IfModule mod_php.c>"
+  [ -n "$up" ] && section="$section
+  php_value upload_max_filesize $up"
+  [ -n "$pm" ] && section="$section
+  php_value post_max_size $pm"
+  [ -n "$ml" ] && section="$section
+  php_value memory_limit $ml"
+  section="$section
+</IfModule>
+$end"
+
+  # Agregamos la sección al principio para que WordPress no la pise fácilmente.
+  printf '%s\n\n%s' "$section" "$cleaned" > "$ht"
+  fchown "$u" "$ht" 2>/dev/null || true
+  chmod 644 "$ht" 2>/dev/null || true
+}
+
 # Escribe (o borra) /home/<u>/<docroot>/.user.ini con los límites PHP pedidos.
-# Funciona tanto con mod_php como con PHP-FPM; no requiere reiniciar servicios.
+# Respaldo para entornos PHP-FPM.
 php_user_ini() { # $1=usuario $2=document_root $3=upload_max $4=post_max $5=memory_limit
-  local u="$1" dr="$2" up="$3" pm="$4" ml="$5" ini="/home/$u/$dr/.user.ini"
+  local u="$1" dr="$2" up="$3" pm="$4" ml="$5"
+  local ini="/home/$u/$dr/.user.ini"
   if [ -z "$up" ] && [ -z "$pm" ] && [ -z "$ml" ]; then
     rm -f "$ini"
     return 0
@@ -367,6 +420,7 @@ vhost_ensure() { # $1=usuario $2=dominio $3=folder [$4=document_root] [$5=php_ve
   fi
   vhost_conf "$u" "$d" "$f" "$dr" "$pv"
   [ -n "$dr" ] || dr="$f"
+  php_htaccess "$u" "$dr" "$up" "$pm" "$ml"
   php_user_ini "$u" "$dr" "$up" "$pm" "$ml"
 }
 
